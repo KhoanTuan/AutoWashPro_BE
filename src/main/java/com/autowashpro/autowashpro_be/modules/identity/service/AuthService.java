@@ -1,6 +1,7 @@
 package com.autowashpro.autowashpro_be.modules.identity.service;
 
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
+import com.autowashpro.autowashpro_be.modules.identity.dto.ChangePasswordRequest;
 import com.autowashpro.autowashpro_be.modules.identity.dto.JwtResponse;
 import com.autowashpro.autowashpro_be.modules.identity.dto.LoginRequest;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
@@ -27,6 +28,7 @@ public class AuthService {
     private final StaffRepository staffRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final StaffService staffService;
 
     @Transactional(readOnly = true)
     public JwtResponse login(LoginRequest request) {
@@ -45,24 +47,17 @@ public class AuthService {
             throw new BadRequestException("Account is inactive. Contact administrator.");
         }
 
-        UserPrincipal principal = userDetailsService.toStaffPrincipal(staff);
-        List<String> permissions = principal.getPermissionCodes();
-        List<String> roles = staff.getRoles().stream()
-                .map(r -> r.getRoleName())
-                .sorted()
-                .collect(Collectors.toList());
+        return buildJwtResponse(staff);
+    }
 
-        String token = jwtTokenProvider.generateStaffToken(staff.getStaffId(), staff.getUsername(), permissions);
+    @Transactional
+    public JwtResponse changePassword(UserPrincipal principal, ChangePasswordRequest request) {
+        staffService.changePassword(principal.getId(), request);
 
-        return JwtResponse.builder()
-                .accessToken(token)
-                .tokenType("Bearer")
-                .staffId(staff.getStaffId())
-                .username(staff.getUsername())
-                .fullName(staff.getFullName())
-                .roles(roles)
-                .permissions(permissions)
-                .build();
+        Staff staff = staffRepository.findById(principal.getId())
+                .orElseThrow(() -> new BadRequestException("Staff not found"));
+
+        return buildJwtResponse(staff);
     }
 
     @Transactional(readOnly = true)
@@ -82,6 +77,31 @@ public class AuthService {
                 .fullName(staff.getFullName())
                 .roles(roles)
                 .permissions(permissions)
+                .forceChangePassword(Boolean.TRUE.equals(staff.getRequirePasswordChange()))
+                .build();
+    }
+
+    private JwtResponse buildJwtResponse(Staff staff) {
+        UserPrincipal principal = userDetailsService.toStaffPrincipal(staff);
+        List<String> permissions = principal.getPermissionCodes();
+        List<String> roles = staff.getRoles().stream()
+                .map(r -> r.getRoleName())
+                .sorted()
+                .collect(Collectors.toList());
+
+        boolean forceChange = Boolean.TRUE.equals(staff.getRequirePasswordChange());
+        String token = jwtTokenProvider.generateStaffToken(
+                staff.getStaffId(), staff.getUsername(), permissions, forceChange);
+
+        return JwtResponse.builder()
+                .accessToken(token)
+                .tokenType("Bearer")
+                .staffId(staff.getStaffId())
+                .username(staff.getUsername())
+                .fullName(staff.getFullName())
+                .roles(roles)
+                .permissions(permissions)
+                .forceChangePassword(forceChange)
                 .build();
     }
 }

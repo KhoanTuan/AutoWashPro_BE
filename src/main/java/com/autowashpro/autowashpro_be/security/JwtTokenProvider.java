@@ -22,11 +22,12 @@ public class JwtTokenProvider {
     @Value("${app.jwt.expiration-ms}")
     private long expirationMs;
 
-    public String generateStaffToken(Long staffId, String username, List<String> permissions) {
+    public String generateStaffToken(Long staffId, String username, List<String> permissions, boolean forceChangePassword) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userType", UserPrincipal.UserType.STAFF.name());
         claims.put("staffId", staffId);
         claims.put("permissions", permissions);
+        claims.put("forceChangePassword", forceChangePassword);
         return buildToken(claims, username);
     }
 
@@ -69,6 +70,13 @@ public class JwtTokenProvider {
 
     public Long extractCustomerId(String token) {
         return extractClaim(token, claims -> claims.get("customerId", Long.class));
+    }
+
+    public Boolean extractForceChangePassword(String token) {
+        return extractClaim(token, claims -> {
+            Boolean value = claims.get("forceChangePassword", Boolean.class);
+            return value != null && value;
+        });
     }
 
     public boolean isTokenValid(String token) {

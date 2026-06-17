@@ -30,6 +30,13 @@ public class Staff extends BaseEntity {
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
 
+    @Column(nullable = false, unique = true, length = 100)
+    private String email;
+
+    @Column(name = "require_password_change", nullable = false)
+    @Builder.Default
+    private Boolean requirePasswordChange = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

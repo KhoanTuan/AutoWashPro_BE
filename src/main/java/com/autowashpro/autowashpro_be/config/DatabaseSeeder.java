@@ -38,20 +38,22 @@ public class DatabaseSeeder implements CommandLineRunner {
             "VIEW_FINANCIAL_LEDGER", "AUDIT_SHIFT_CLOSURE", "MANAGE_MARKETING_PROMOTION",
             "VIEW_AI_STRATEGY_REPORT", "MONITOR_AI_LOYALTY_AUTOMATION", "VIEW_FEEDBACK_SENTIMENT",
             "VIEW_SECURITY_AUDIT_LOG",
-            "PROCESS_CHECKIN", "CREATE_WALKIN_ORDER", "CLOSE_SHIFT",
-            "VIEW_TECH_QUEUE", "UPDATE_TASK_CHECKLIST"
+            "CASHIER_CHECKIN", "CREATE_WALK_IN_BOOKING", "CLOSE_SHIFT",
+            "VIEW_TECH_QUEUE", "TASK_CHECKLIST"
     );
 
     @Override
     @Transactional
     public void run(String... args) {
         seedLoyaltyTiers();
+        patchExistingStaffEmails();
+
         if (permissionRepository.count() > 0) {
             log.info("Database already seeded.");
             return;
         }
 
-        log.info("Seeding permissions, roles, and default admin...");
+        log.info("Seeding permissions, roles, and default staff accounts...");
 
         Map<String, Permission> permissionMap = new LinkedHashMap<>();
         for (String code : ALL_PERMISSIONS) {
@@ -62,52 +64,67 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         Role adminRole = createRole("ROLE_ADMIN", "System administrator", permissionMap.values());
         Role cashierRole = createRole("ROLE_CASHIER", "Front desk cashier", Set.of(
-                permissionMap.get("PROCESS_CHECKIN"),
-                permissionMap.get("CREATE_WALKIN_ORDER"),
+                permissionMap.get("CASHIER_CHECKIN"),
+                permissionMap.get("CREATE_WALK_IN_BOOKING"),
                 permissionMap.get("CLOSE_SHIFT"),
                 permissionMap.get("VIEW_CUSTOMER_PROFILE"),
                 permissionMap.get("MONITOR_REALTIME_QUEUE")
         ));
         Role technicianRole = createRole("ROLE_TECHNICIAN", "Back bay technician", Set.of(
                 permissionMap.get("VIEW_TECH_QUEUE"),
-                permissionMap.get("UPDATE_TASK_CHECKLIST"),
+                permissionMap.get("TASK_CHECKLIST"),
                 permissionMap.get("MONITOR_REALTIME_QUEUE")
         ));
 
-        Staff admin = Staff.builder()
+        staffRepository.save(Staff.builder()
                 .username("admin")
+                .email("admin@autowashpro.com")
                 .passwordHash(passwordEncoder.encode("Admin@123"))
                 .fullName("System Administrator")
+                .requirePasswordChange(false)
                 .status(StaffStatus.ACTIVE)
                 .roles(new HashSet<>(Set.of(adminRole)))
-                .build();
-        staffRepository.save(admin);
+                .build());
 
-        Staff cashier = Staff.builder()
+        staffRepository.save(Staff.builder()
                 .username("cashier")
+                .email("cashier@autowashpro.com")
                 .passwordHash(passwordEncoder.encode("Cashier@123"))
                 .fullName("Demo Cashier")
+                .requirePasswordChange(false)
                 .status(StaffStatus.ACTIVE)
                 .roles(new HashSet<>(Set.of(cashierRole)))
-                .build();
-        staffRepository.save(cashier);
+                .build());
 
-        Staff technician = Staff.builder()
+        staffRepository.save(Staff.builder()
                 .username("technician")
+                .email("technician@autowashpro.com")
                 .passwordHash(passwordEncoder.encode("Tech@123"))
                 .fullName("Demo Technician")
+                .requirePasswordChange(false)
                 .status(StaffStatus.ACTIVE)
                 .roles(new HashSet<>(Set.of(technicianRole)))
-                .build();
-        staffRepository.save(technician);
+                .build());
 
         log.info("Seed complete. Admin: admin / Admin@123");
+    }
+
+    private void patchExistingStaffEmails() {
+        staffRepository.findAll().forEach(staff -> {
+            if (staff.getEmail() == null || staff.getEmail().isBlank()) {
+                staff.setEmail(staff.getUsername() + "@autowashpro.com");
+            }
+            if (staff.getRequirePasswordChange() == null) {
+                staff.setRequirePasswordChange(false);
+            }
+            staffRepository.save(staff);
+        });
     }
 
     private void seedLoyaltyTiers() {
         if (loyaltyTierRepository.count() > 0) return;
         loyaltyTierRepository.saveAll(List.of(
-                tier("MEMBER", "0", "1.00", 7),
+                tier("REGULAR", "0", "1.00", 7),
                 tier("SILVER", "1000000", "1.20", 10),
                 tier("GOLD", "5000000", "1.50", 12),
                 tier("PLATINUM", "10000000", "2.00", 14)

@@ -2,6 +2,7 @@ package com.autowashpro.autowashpro_be.modules.customer.service;
 
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
 import com.autowashpro.autowashpro_be.common.exception.ResourceNotFoundException;
+import com.autowashpro.autowashpro_be.common.service.NotificationService;
 import com.autowashpro.autowashpro_be.modules.customer.dto.*;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyTier;
@@ -26,6 +27,8 @@ public class CustomerAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManager authenticationManager;
+    private final OtpStoreService otpStoreService;
+    private final NotificationService notificationService;
 
     @Transactional
     public CustomerAuthResponse register(CustomerRegisterRequest request) {
@@ -33,14 +36,15 @@ public class CustomerAuthService {
             throw new BadRequestException("Phone number already registered");
         }
 
-        LoyaltyTier memberTier = loyaltyTierRepository.findByTierName("MEMBER")
+        LoyaltyTier regularTier = loyaltyTierRepository.findByTierName("REGULAR")
+                .or(() -> loyaltyTierRepository.findByTierName("MEMBER"))
                 .orElseThrow(() -> new BadRequestException("Default tier not configured"));
 
         Customer customer = Customer.builder()
                 .phoneNumber(request.getPhoneNumber())
                 .fullName(request.getFullName())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .tier(memberTier)
+                .tier(regularTier)
                 .build();
 
         customer = customerRepository.save(customer);
@@ -61,6 +65,33 @@ public class CustomerAuthService {
                 .orElseThrow(() -> new BadCredentialsException("Invalid phone number or password"));
 
         return buildAuthResponse(customer);
+    }
+
+    @Transactional(readOnly = true)
+    public ForgotPasswordResponse forgotPassword(CustomerForgotPasswordRequest request) {
+        Customer customer = customerRepository.findByPhoneNumber(request.getPhoneNumber())
+                .orElseThrow(() -> new ResourceNotFoundException("Phone number not registered"));
+
+        String otp = otpStoreService.generateAndStore(customer.getPhoneNumber());
+        notificationService.sendOtpSms(customer.getPhoneNumber(), otp);
+
+        return ForgotPasswordResponse.builder()
+                .message("OTP sent to your phone number")
+                .expiresInSeconds((int) otpStoreService.getTtlSeconds())
+                .build();
+    }
+
+    @Transactional
+    public void resetPassword(CustomerResetPasswordRequest request) {
+        if (!otpStoreService.verify(request.getPhoneNumber(), request.getOtp())) {
+            throw new BadRequestException("Invalid or expired OTP");
+        }
+
+        Customer customer = customerRepository.findByPhoneNumber(request.getPhoneNumber())
+                .orElseThrow(() -> new ResourceNotFoundException("Phone number not registered"));
+
+        customer.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        customerRepository.save(customer);
     }
 
     @Transactional(readOnly = true)

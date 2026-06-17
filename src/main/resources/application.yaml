@@ -24,6 +24,17 @@ app:
   jwt:
     secret: AutoWashProSecretKeyForJWT2026MustBeAtLeast256BitsLong!!
     expiration-ms: 86400000
+  otp:
+    ttl-seconds: 120
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    doc-expansion: list
+  api-docs:
+    path: /v3/api-docs
 
 logging:
   level:

@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface StaffRepository extends JpaRepository<Staff, Long> {
     Optional<Staff> findByUsername(String username);
     boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
 
     @Query("SELECT s FROM Staff s WHERE (:status IS NULL OR s.status = :status) " +
            "AND (:keyword IS NULL OR LOWER(s.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

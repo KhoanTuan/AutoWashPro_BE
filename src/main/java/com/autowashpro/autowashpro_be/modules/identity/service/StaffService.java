@@ -3,6 +3,8 @@ package com.autowashpro.autowashpro_be.modules.identity.service;
 import com.autowashpro.autowashpro_be.common.dto.PageResponse;
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
 import com.autowashpro.autowashpro_be.common.exception.ResourceNotFoundException;
+import com.autowashpro.autowashpro_be.common.service.NotificationService;
+import com.autowashpro.autowashpro_be.modules.identity.StaffConstants;
 import com.autowashpro.autowashpro_be.modules.identity.dto.*;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Role;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
@@ -29,6 +31,7 @@ public class StaffService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final IdentityMapper mapper;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public PageResponse<StaffResponse> listStaff(String status, String keyword, int page, int size) {
@@ -63,20 +66,53 @@ public class StaffService {
     }
 
     @Transactional
-    public StaffResponse create(CreateStaffRequest request) {
+    public CreateStaffResponse provisionStaff(CreateStaffRequest request) {
         if (staffRepository.existsByUsername(request.getUsername())) {
             throw new BadRequestException("Username already exists");
         }
+        if (staffRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException("Email already exists");
+        }
+
+        String tempPassword = StaffConstants.TEMP_PASSWORD;
 
         Staff staff = Staff.builder()
                 .username(request.getUsername())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .email(request.getEmail())
+                .passwordHash(passwordEncoder.encode(tempPassword))
                 .fullName(request.getFullName())
+                .requirePasswordChange(true)
                 .status(StaffStatus.ACTIVE)
                 .roles(resolveRoles(request.getRoleIds()))
                 .build();
 
-        return mapper.toStaffResponse(staffRepository.save(staff));
+        staff = staffRepository.save(staff);
+        notificationService.sendStaffWelcomeEmail(staff.getEmail(), staff.getUsername(), tempPassword);
+
+        return CreateStaffResponse.builder()
+                .staff(mapper.toStaffResponse(staff))
+                .temporaryPassword(tempPassword)
+                .message("Staff account created. Temporary password sent to " + staff.getEmail())
+                .build();
+    }
+
+    @Transactional
+    public CreateStaffResponse resetPassword(Long id) {
+        Staff staff = staffRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
+
+        String tempPassword = StaffConstants.RESET_PASSWORD;
+        staff.setPasswordHash(passwordEncoder.encode(tempPassword));
+        staff.setRequirePasswordChange(true);
+        staff = staffRepository.save(staff);
+
+        notificationService.sendPasswordResetEmail(staff.getEmail(), staff.getUsername(), tempPassword);
+
+        return CreateStaffResponse.builder()
+                .staff(mapper.toStaffResponse(staff))
+                .temporaryPassword(tempPassword)
+                .message("Password reset. Temporary password sent to " + staff.getEmail())
+                .build();
     }
 
     @Transactional
@@ -93,6 +129,20 @@ public class StaffService {
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
         staff.setRoles(resolveRoles(request.getRoleIds()));
         return mapper.toStaffResponse(staffRepository.save(staff));
+    }
+
+    @Transactional
+    public void changePassword(Long staffId, ChangePasswordRequest request) {
+        Staff staff = staffRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), staff.getPasswordHash())) {
+            throw new BadRequestException("Current password is incorrect");
+        }
+
+        staff.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        staff.setRequirePasswordChange(false);
+        staffRepository.save(staff);
     }
 
     private Set<Role> resolveRoles(List<Integer> roleIds) {
