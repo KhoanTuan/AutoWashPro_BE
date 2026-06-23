@@ -1,5 +1,6 @@
 package com.autowashpro.autowashpro_be.common.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,7 +29,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentials(BadCredentialsException ex) {
-        return build(HttpStatus.UNAUTHORIZED, "Invalid username or password");
+        return build(HttpStatus.UNAUTHORIZED, "Invalid credentials");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -48,6 +49,20 @@ public class GlobalExceptionHandler {
         body.put("message", "Validation failed");
         body.put("errors", errors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        String message = "Database constraint violation";
+        if (ex.getMostSpecificCause() != null && ex.getMostSpecificCause().getMessage() != null) {
+            message = ex.getMostSpecificCause().getMessage();
+        }
+        return build(HttpStatus.BAD_REQUEST, message);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error: " + ex.getMessage());
     }
 
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String message) {
