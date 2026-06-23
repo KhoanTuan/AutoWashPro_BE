@@ -33,6 +33,9 @@ public class Staff extends BaseEntity {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
+    @Column(name = "phone_number", unique = true, length = 15)
+    private String phoneNumber;
+
     @Column(name = "require_password_change", nullable = false)
     @Builder.Default
     private Boolean requirePasswordChange = false;
@@ -41,6 +44,25 @@ public class Staff extends BaseEntity {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private StaffStatus status = StaffStatus.ACTIVE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "work_status", nullable = false, length = 20)
+    @Builder.Default
+    private StaffWorkStatus workStatus = StaffWorkStatus.IDLE;
+
+    /** KPI hiệu suất 0–100 — chỉ hệ thống cập nhật, không sửa qua CRUD */
+    @Column(name = "performance_kpi", nullable = false)
+    @Builder.Default
+    private Double performanceKpi = 0.0;
+
+    @Column(name = "total_jobs_completed", nullable = false)
+    @Builder.Default
+    private Integer totalJobsCompleted = 0;
+
+    /** Điểm đánh giá dịch vụ 0–5 — read-only qua API quản trị */
+    @Column(name = "service_rating", nullable = false)
+    @Builder.Default
+    private Double serviceRating = 5.0;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

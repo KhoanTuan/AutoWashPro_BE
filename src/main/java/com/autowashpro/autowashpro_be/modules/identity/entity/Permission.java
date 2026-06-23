@@ -17,6 +17,20 @@ public class Permission {
     @Column(name = "permission_id")
     private Integer permissionId;
 
-    @Column(name = "permission_code", nullable = false, unique = true, length = 50)
+    @Column(name = "permission_code", nullable = false, unique = true, length = 100)
     private String permissionCode;
+
+    @Column(length = 255)
+    private String description;
+
+    @Column(name = "module_group", length = 50)
+    private String moduleGroup;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer phase = 1;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean enabled = true;
 }

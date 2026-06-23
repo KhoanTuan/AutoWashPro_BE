@@ -5,14 +5,26 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-@Schema(description = "Request đăng nhập nhân viên nội bộ")
+@Schema(description = "Request đăng nhập hợp nhất (Omni-Login)")
 public class LoginRequest {
 
-    @NotBlank(message = "Username is required")
-    @Schema(description = "Tên đăng nhập nhân viên", example = "admin")
+    @Schema(description = "Username, email hoặc SĐT — ưu tiên dùng field này", example = "admin")
+    private String loginId;
+
+    @Schema(description = "Alias của loginId (tương thích client cũ)", example = "admin")
     private String username;
 
     @NotBlank(message = "Password is required")
     @Schema(description = "Mật khẩu", example = "Admin@123")
     private String password;
+
+    public String resolveLoginId() {
+        if (loginId != null && !loginId.isBlank()) {
+            return loginId.trim();
+        }
+        if (username != null && !username.isBlank()) {
+            return username.trim();
+        }
+        return null;
+    }
 }

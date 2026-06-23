@@ -20,6 +20,15 @@ public class RoleResponse {
     @Schema(description = "Mô tả vai trò", example = "Front desk cashier")
     private String description;
 
+    @Schema(description = "Tên hiển thị thân thiện (alias của description)")
+    private String displayName;
+
+    @Schema(description = "Role hệ thống — không xóa / không đổi tên")
+    private Boolean isSystem;
+
+    @Schema(description = "Số nhân viên đang được gán role này")
+    private Integer staffCount;
+
     @Schema(description = "Danh sách quyền hiện có của role này")
     private List<PermissionSummary> permissions;
 }

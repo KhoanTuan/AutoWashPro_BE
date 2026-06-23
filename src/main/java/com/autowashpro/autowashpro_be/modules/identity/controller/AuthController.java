@@ -4,6 +4,7 @@ import com.autowashpro.autowashpro_be.modules.identity.dto.ChangePasswordRequest
 import com.autowashpro.autowashpro_be.modules.identity.dto.JwtResponse;
 import com.autowashpro.autowashpro_be.modules.identity.dto.LoginRequest;
 import com.autowashpro.autowashpro_be.modules.identity.service.AuthService;
+import com.autowashpro.autowashpro_be.common.openapi.ApiHidden;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,10 +20,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import static com.autowashpro.autowashpro_be.config.OpenApiConfig.TAG_02_OMNI_AUTH;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@Tag(name = "02 - Staff Auth", description = "Xác thực nhân sự nội bộ — cổng ẩn `/internal-login`")
+@Tag(name = TAG_02_OMNI_AUTH, description = "Omni-Login + phiên staff")
 public class AuthController {
 
     private final AuthService authService;
@@ -30,29 +33,30 @@ public class AuthController {
     @PostMapping("/login")
     @SecurityRequirements
     @Operation(
-            summary = "Đăng nhập nhân viên nội bộ",
+            operationId = "02-01-login",
+            summary = "[PUBLIC] Omni-Login",
             description = """
-                    **Frontend route:** `/login-internal`
-
-                    - Định danh bằng `username` (không phải SĐT)
-                    - Trả về JWT kèm `roles`, `permissions`, `forceChangePassword`
-                    - Nếu `forceChangePassword = true`: FE khóa sidebar, hiện overlay buộc đổi mật khẩu
-                    - Lưu `accessToken` vào localStorage, gắn header `Authorization: Bearer {token}` cho các API sau
+                    Một ô `loginId` (username staff / username khách / email / SĐT) + password.
+                    - Staff trước → redirect `/admin/dashboard`
+                    - Khách hàng (SĐT, email hoặc username) → redirect `/customer/dashboard`
+                    - Tài khoản email phải đã xác thực (`ACTIVE`)
                     """
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Đăng nhập thành công", content = @Content(schema = @Schema(implementation = JwtResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Sai username hoặc password"),
-            @ApiResponse(responseCode = "400", description = "Tài khoản bị khóa (INACTIVE)")
+            @ApiResponse(responseCode = "401", description = "Sai thông tin đăng nhập"),
+            @ApiResponse(responseCode = "400", description = "Tài khoản staff bị khóa hoặc thiếu loginId")
     })
     public ResponseEntity<JwtResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
 
     @GetMapping("/me")
+    @ApiHidden
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
-            summary = "Lấy thông tin nhân viên đang đăng nhập",
+            operationId = "02-02-me",
+            summary = "[READ] Profile staff đang đăng nhập",
             description = """
                     Dùng sau khi reload trang để khôi phục session staff.
 
@@ -73,9 +77,11 @@ public class AuthController {
     }
 
     @PutMapping("/change-password")
+    @ApiHidden
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
-            summary = "Đổi mật khẩu nhân viên",
+            operationId = "02-03-change-password",
+            summary = "[UPDATE] Đổi mật khẩu staff",
             description = """
                     **Khi nào gọi:** Nhân viên bị `forceChangePassword = true` sau khi Admin tạo/reset tài khoản.
 

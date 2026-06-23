@@ -9,9 +9,10 @@ import lombok.Data;
 @Schema(description = "Mã quyền vi mô — dùng cho ma trận RBAC")
 public class PermissionSummary {
 
-    @Schema(description = "ID quyền", example = "5")
     private Integer permissionId;
-
-    @Schema(description = "Mã quyền — dùng cho PermissionGuard trên FE", example = "CASHIER_CHECKIN")
     private String permissionCode;
+    private String description;
+    private String moduleGroup;
+    private Integer phase;
+    private Boolean enabled;
 }

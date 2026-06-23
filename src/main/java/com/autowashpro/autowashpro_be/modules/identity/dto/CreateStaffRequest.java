@@ -28,6 +28,10 @@ public class CreateStaffRequest {
     @Schema(description = "Họ tên đầy đủ", example = "Nguyen Van B")
     private String fullName;
 
+    @Size(max = 15)
+    @Schema(description = "Số điện thoại nội bộ", example = "0912345678")
+    private String phoneNumber;
+
     @Schema(description = "Danh sách roleId cần gán — lấy từ GET /api/v1/roles", example = "[2]")
     private List<Integer> roleIds;
 }
