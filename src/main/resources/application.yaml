@@ -50,6 +50,7 @@ app:
     ttl-seconds: 120
   frontend:
     url: http://localhost:5173
+  # mail.mode: GMAIL hoặc MOCK — đặt trong application-local.yaml (giống auth-test-sandbox)
   mail:
     mode: MOCK
   security-token:
@@ -80,3 +81,4 @@ springdoc:
 logging:
   level:
     org.springframework.security: INFO
+    org.springframework.mail: DEBUG
