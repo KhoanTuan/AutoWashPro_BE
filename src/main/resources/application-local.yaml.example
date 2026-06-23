@@ -1,0 +1,12 @@
+# Copy thành application-local.yaml (file đó đã gitignore)
+
+app:
+  mail:
+    mode: GMAIL
+  gmail:
+    username: your_gmail@gmail.com
+    app-password: your_gmail_app_password
+  speedsms:
+    enabled: true
+    access-token: your_speedsms_api_access_token
+    sender: ""

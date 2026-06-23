@@ -21,11 +21,27 @@ public class Customer extends BaseEntity {
     @Column(name = "customer_id")
     private Long customerId;
 
-    @Column(name = "phone_number", nullable = false, unique = true, length = 15)
+    @Column(name = "username", unique = true, length = 50)
+    private String username;
+
+    @Column(name = "phone_number", unique = true, length = 15)
     private String phoneNumber;
 
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
+
+    @Column(name = "email", unique = true, length = 100)
+    private String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20)
+    @Builder.Default
+    private CustomerAuthProvider authProvider = CustomerAuthProvider.PHONE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
+    private CustomerStatus status = CustomerStatus.ACTIVE;
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;

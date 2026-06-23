@@ -1,10 +1,17 @@
 spring:
   application:
     name: AutoWashPro_BE
+  config:
+    import: optional:classpath:application-local.yaml
   datasource:
     url: jdbc:postgresql://localhost:5432/autowashpro
     username: postgres
     password: 123
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/patch-email-auth.sql
+      continue-on-error: true
   jpa:
     hibernate:
       ddl-auto: update
@@ -16,6 +23,21 @@ spring:
   docker:
     compose:
       enabled: false
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_USERNAME:}
+    password: ${GMAIL_APP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        connectiontimeout: 10000
+        timeout: 10000
+        writetimeout: 10000
 
 server:
   port: 8080
@@ -26,6 +48,23 @@ app:
     expiration-ms: 86400000
   otp:
     ttl-seconds: 120
+  frontend:
+    url: http://localhost:5173
+  mail:
+    mode: MOCK
+  security-token:
+    email-verification-minutes: 30
+    password-reset-minutes: 10
+  gmail:
+    username: ${GMAIL_USERNAME:}
+    app-password: ${GMAIL_APP_PASSWORD:}
+    from-name: AutoWash Pro
+  speedsms:
+    enabled: false
+    access-token: ${SPEEDSMS_ACCESS_TOKEN:}
+    api-url: https://api.speedsms.vn/index.php/sms/send
+    sms-type: 2
+    sender: ${SPEEDSMS_SENDER:}
 
 springdoc:
   swagger-ui:
@@ -33,6 +72,8 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: alpha
     doc-expansion: list
+    display-operation-id: true
+    filter: true
   api-docs:
     path: /v3/api-docs
 
