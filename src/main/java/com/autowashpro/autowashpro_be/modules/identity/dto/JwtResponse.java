@@ -34,4 +34,25 @@ public class JwtResponse {
 
     @Schema(description = "true = FE phải chặn sidebar và buộc đổi mật khẩu ngay", example = "false")
     private Boolean forceChangePassword;
+
+    @Schema(description = "STAFF hoặc CUSTOMER", example = "STAFF")
+    private String userType;
+
+    @Schema(description = "Đường dẫn FE sau login — dùng navigate(redirectUrl)", example = "/admin/dashboard")
+    private String redirectUrl;
+
+    @Schema(description = "ID khách hàng (chỉ khi userType = CUSTOMER)", example = "1")
+    private Long customerId;
+
+    @Schema(description = "SĐT khách hàng (chỉ khi userType = CUSTOMER)", example = "0911207121")
+    private String phoneNumber;
+
+    @Schema(description = "Email khách hàng (chỉ khi userType = CUSTOMER)", example = "user@example.com")
+    private String email;
+
+    @Schema(description = "Hạng thành viên (chỉ khi userType = CUSTOMER)", example = "REGULAR")
+    private String tierName;
+
+    @Schema(description = "Điểm tích lũy (chỉ khi userType = CUSTOMER)", example = "0")
+    private Integer loyaltyPoints;
 }

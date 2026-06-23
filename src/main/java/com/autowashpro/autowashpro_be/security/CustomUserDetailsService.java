@@ -1,6 +1,8 @@
 package com.autowashpro.autowashpro_be.security;
 
+import com.autowashpro.autowashpro_be.common.service.MailService;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
+import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Permission;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Role;
@@ -14,6 +16,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -27,20 +30,49 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         return staffRepository.findByUsername(username)
                 .map(this::toStaffPrincipal)
-                .orElseGet(() -> customerRepository.findByPhoneNumber(username)
-                        .map(this::toCustomerPrincipal)
+                .orElseGet(() -> findCustomerPrincipal(username)
                         .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username)));
     }
 
     public UserPrincipal loadByUsernameAndType(String username, UserPrincipal.UserType userType) {
         if (userType == UserPrincipal.UserType.CUSTOMER) {
-            return customerRepository.findByPhoneNumber(username)
-                    .map(this::toCustomerPrincipal)
-                    .orElse(null);
+            return findCustomerPrincipal(username).orElse(null);
         }
         return staffRepository.findByUsername(username)
                 .map(this::toStaffPrincipal)
                 .orElse(null);
+    }
+
+    private Optional<UserPrincipal> findCustomerPrincipal(String loginId) {
+        if (loginId.contains("@")) {
+            Optional<UserPrincipal> byEmail = customerRepository.findByEmail(MailService.normalizeEmail(loginId))
+                    .map(this::toCustomerPrincipal);
+            if (byEmail.isPresent()) {
+                return byEmail;
+            }
+        }
+
+        String phone = normalizePhone(loginId);
+        if (phone.matches("^0\\d{9,10}$")) {
+            Optional<UserPrincipal> byPhone = customerRepository.findByPhoneNumber(phone)
+                    .map(this::toCustomerPrincipal);
+            if (byPhone.isPresent()) {
+                return byPhone;
+            }
+        }
+
+        return customerRepository.findByUsername(loginId.trim()).map(this::toCustomerPrincipal);
+    }
+
+    private static String normalizePhone(String input) {
+        String digits = input.replaceAll("\\s+", "");
+        if (digits.startsWith("+84")) {
+            return "0" + digits.substring(3);
+        }
+        if (digits.startsWith("84") && digits.length() >= 11) {
+            return "0" + digits.substring(2);
+        }
+        return digits;
     }
 
     public UserPrincipal toStaffPrincipal(Staff staff) {
@@ -61,12 +93,17 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     public UserPrincipal toCustomerPrincipal(Customer customer) {
+        String principalName = customer.getPhoneNumber() != null && !customer.getPhoneNumber().isBlank()
+                ? customer.getPhoneNumber()
+                : (customer.getEmail() != null && !customer.getEmail().isBlank()
+                ? customer.getEmail()
+                : customer.getUsername());
         return new UserPrincipal(
                 customer.getCustomerId(),
-                customer.getPhoneNumber(),
+                principalName,
                 customer.getPasswordHash(),
                 UserPrincipal.UserType.CUSTOMER,
-                true,
+                customer.getStatus() == CustomerStatus.ACTIVE,
                 Set.of("ROLE_CUSTOMER")
         );
     }

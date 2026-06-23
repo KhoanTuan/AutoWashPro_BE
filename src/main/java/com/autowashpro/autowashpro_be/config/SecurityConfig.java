@@ -42,9 +42,16 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/login",
                                 "/api/v1/customer/auth/login",
-                                "/api/v1/customer/auth/register",
+                                "/api/v1/customer/auth/register/request",
+                                "/api/v1/customer/auth/register/verify",
+                                "/api/v1/customer/auth/register/resend-otp",
                                 "/api/v1/customer/auth/forgot-password",
                                 "/api/v1/customer/auth/reset-password",
+                                "/api/v1/customer/auth/email/register",
+                                "/api/v1/customer/auth/email/verify",
+                                "/api/v1/customer/auth/email/login",
+                                "/api/v1/customer/auth/email/forgot-password",
+                                "/api/v1/customer/auth/email/reset-password",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"

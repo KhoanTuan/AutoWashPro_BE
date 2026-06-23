@@ -1,6 +1,10 @@
 package com.autowashpro.autowashpro_be.modules.identity.service;
 
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
+import com.autowashpro.autowashpro_be.common.service.MailService;
+import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
+import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
+import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.identity.dto.ChangePasswordRequest;
 import com.autowashpro.autowashpro_be.modules.identity.dto.JwtResponse;
 import com.autowashpro.autowashpro_be.modules.identity.dto.LoginRequest;
@@ -11,43 +15,129 @@ import com.autowashpro.autowashpro_be.security.CustomUserDetailsService;
 import com.autowashpro.autowashpro_be.security.JwtTokenProvider;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final AuthenticationManager authenticationManager;
     private final StaffRepository staffRepository;
+    private final CustomerRepository customerRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
     private final StaffService staffService;
+    private final PasswordEncoder passwordEncoder;
+
+    private static final String STAFF_REDIRECT = "/admin/dashboard";
+    private static final String CUSTOMER_REDIRECT = "/customer/dashboard";
 
     @Transactional(readOnly = true)
     public JwtResponse login(LoginRequest request) {
-        try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-            );
-        } catch (BadCredentialsException ex) {
-            throw new BadCredentialsException("Invalid username or password");
+        String loginId = request.resolveLoginId();
+        if (loginId == null || loginId.isBlank()) {
+            throw new BadRequestException("Login ID is required");
         }
 
-        Staff staff = staffRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
+        Optional<Staff> staffOpt = staffRepository.findByLoginId(loginId);
+        if (staffOpt.isPresent()) {
+            return loginStaff(staffOpt.get(), request.getPassword());
+        }
 
+        Optional<Customer> customerOpt = findCustomerByLoginId(loginId);
+        if (customerOpt.isPresent()) {
+            return loginCustomer(customerOpt.get(), request.getPassword());
+        }
+
+        throw new BadCredentialsException("Invalid credentials");
+    }
+
+    private Optional<Customer> findCustomerByLoginId(String loginId) {
+        if (loginId.contains("@")) {
+            Optional<Customer> byEmail = customerRepository.findByEmail(MailService.normalizeEmail(loginId));
+            if (byEmail.isPresent()) {
+                return byEmail;
+            }
+        }
+
+        String phone = normalizePhone(loginId);
+        if (phone.matches("^0\\d{9,10}$")) {
+            Optional<Customer> byPhone = customerRepository.findByPhoneNumber(phone);
+            if (byPhone.isPresent()) {
+                return byPhone;
+            }
+        }
+
+        return customerRepository.findByUsername(loginId.trim());
+    }
+
+    private JwtResponse loginStaff(Staff staff, String rawPassword) {
+        if (!passwordEncoder.matches(rawPassword, staff.getPasswordHash())) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
         if (staff.getStatus() != StaffStatus.ACTIVE) {
             throw new BadRequestException("Account is inactive. Contact administrator.");
         }
+        JwtResponse response = buildJwtResponse(staff);
+        response.setUserType(UserPrincipal.UserType.STAFF.name());
+        response.setRedirectUrl(STAFF_REDIRECT);
+        return response;
+    }
 
-        return buildJwtResponse(staff);
+    private JwtResponse loginCustomer(Customer customer, String rawPassword) {
+        if (customer.getStatus() == CustomerStatus.PENDING_ACTIVATION) {
+            throw new BadRequestException("Account not activated. Please verify your email first.");
+        }
+        if (customer.getStatus() != CustomerStatus.ACTIVE) {
+            throw new BadRequestException("Account is not active");
+        }
+        if (!passwordEncoder.matches(rawPassword, customer.getPasswordHash())) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+
+        String subject = resolveCustomerTokenSubject(customer);
+        String token = jwtTokenProvider.generateCustomerToken(customer.getCustomerId(), subject);
+        return JwtResponse.builder()
+                .accessToken(token)
+                .tokenType("Bearer")
+                .userType(UserPrincipal.UserType.CUSTOMER.name())
+                .redirectUrl(CUSTOMER_REDIRECT)
+                .customerId(customer.getCustomerId())
+                .username(customer.getUsername())
+                .phoneNumber(customer.getPhoneNumber())
+                .email(customer.getEmail())
+                .fullName(customer.getFullName())
+                .tierName(customer.getTier().getTierName())
+                .loyaltyPoints(customer.getLoyaltyPoints())
+                .roles(List.of("ROLE_CUSTOMER"))
+                .build();
+    }
+
+    private static String resolveCustomerTokenSubject(Customer customer) {
+        if (customer.getPhoneNumber() != null && !customer.getPhoneNumber().isBlank()) {
+            return customer.getPhoneNumber();
+        }
+        if (customer.getEmail() != null && !customer.getEmail().isBlank()) {
+            return customer.getEmail();
+        }
+        return customer.getUsername();
+    }
+
+    private static String normalizePhone(String input) {
+        String digits = input.replaceAll("\\s+", "");
+        if (digits.startsWith("+84")) {
+            return "0" + digits.substring(3);
+        }
+        if (digits.startsWith("84") && digits.length() >= 11) {
+            return "0" + digits.substring(2);
+        }
+        return digits;
     }
 
     @Transactional
