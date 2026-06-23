@@ -21,6 +21,9 @@ public class CustomerAuthResponse {
     @Schema(description = "Số điện thoại", example = "0901234567")
     private String phoneNumber;
 
+    @Schema(description = "Email", example = "user@example.com")
+    private String email;
+
     @Schema(description = "Họ tên", example = "Nguyen Van A")
     private String fullName;
 
