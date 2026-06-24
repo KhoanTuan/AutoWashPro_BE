@@ -49,10 +49,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UserPrincipal principal = userDetailsService.loadByUsernameAndType(username, userType);
 
             if (principal != null && principal.isEnabled()) {
-                List<String> tokenPermissions = jwtTokenProvider.extractPermissions(token);
-                if (userType == UserPrincipal.UserType.STAFF && tokenPermissions != null) {
-                    Set<String> merged = new HashSet<>(principal.getPermissionCodes());
-                    merged.addAll(tokenPermissions);
+                if (userType == UserPrincipal.UserType.STAFF) {
+                    Set<String> merged = new HashSet<>();
+                    merged.addAll(principal.getRoleCodes());
+                    merged.addAll(principal.getPermissionCodes());
+                    List<String> tokenRoles = jwtTokenProvider.extractRoles(token);
+                    List<String> tokenPermissions = jwtTokenProvider.extractPermissions(token);
+                    if (tokenRoles != null) {
+                        merged.addAll(tokenRoles);
+                    }
+                    if (tokenPermissions != null) {
+                        merged.addAll(tokenPermissions);
+                    }
                     principal = new UserPrincipal(
                             principal.getId(),
                             principal.getUsername(),

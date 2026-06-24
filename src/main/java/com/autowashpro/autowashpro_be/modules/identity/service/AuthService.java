@@ -2,12 +2,15 @@ package com.autowashpro.autowashpro_be.modules.identity.service;
 
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
 import com.autowashpro.autowashpro_be.common.service.MailService;
+import com.autowashpro.autowashpro_be.modules.customer.dto.VerifyEmailTokenResponse;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.identity.dto.ChangePasswordRequest;
 import com.autowashpro.autowashpro_be.modules.identity.dto.JwtResponse;
 import com.autowashpro.autowashpro_be.modules.identity.dto.LoginRequest;
+import com.autowashpro.autowashpro_be.modules.identity.dto.StaffForgotPasswordResponse;
+import com.autowashpro.autowashpro_be.modules.identity.dto.StaffResetPasswordTokenRequest;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
 import com.autowashpro.autowashpro_be.modules.identity.entity.StaffStatus;
 import com.autowashpro.autowashpro_be.modules.identity.repository.StaffRepository;
@@ -22,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -80,6 +82,9 @@ public class AuthService {
     private JwtResponse loginStaff(Staff staff, String rawPassword) {
         if (!passwordEncoder.matches(rawPassword, staff.getPasswordHash())) {
             throw new BadCredentialsException("Invalid credentials");
+        }
+        if (staff.getStatus() == StaffStatus.PENDING_ACTIVATION) {
+            throw new BadRequestException("Account not activated. Please verify your email first.");
         }
         if (staff.getStatus() != StaffStatus.ACTIVE) {
             throw new BadRequestException("Account is inactive. Contact administrator.");
@@ -150,16 +155,28 @@ public class AuthService {
         return buildJwtResponse(staff);
     }
 
+    @Transactional
+    public VerifyEmailTokenResponse verifyStaffEmail(String token) {
+        return staffService.verifyStaffEmail(token);
+    }
+
+    @Transactional
+    public StaffForgotPasswordResponse requestStaffPasswordResetByEmail(String email) {
+        return staffService.requestPasswordResetByEmail(email);
+    }
+
+    @Transactional
+    public void resetStaffPasswordByToken(StaffResetPasswordTokenRequest request) {
+        staffService.resetPasswordByToken(request);
+    }
+
     @Transactional(readOnly = true)
     public JwtResponse getCurrentStaffProfile(UserPrincipal principal) {
         Staff staff = staffRepository.findById(principal.getId())
                 .orElseThrow(() -> new BadRequestException("Staff not found"));
 
         List<String> permissions = principal.getPermissionCodes();
-        List<String> roles = staff.getRoles().stream()
-                .map(r -> r.getRoleName())
-                .sorted()
-                .collect(Collectors.toList());
+        List<String> roles = principal.getRoleCodes();
 
         return JwtResponse.builder()
                 .staffId(staff.getStaffId())
@@ -174,14 +191,11 @@ public class AuthService {
     private JwtResponse buildJwtResponse(Staff staff) {
         UserPrincipal principal = userDetailsService.toStaffPrincipal(staff);
         List<String> permissions = principal.getPermissionCodes();
-        List<String> roles = staff.getRoles().stream()
-                .map(r -> r.getRoleName())
-                .sorted()
-                .collect(Collectors.toList());
+        List<String> roles = principal.getRoleCodes();
 
         boolean forceChange = Boolean.TRUE.equals(staff.getRequirePasswordChange());
         String token = jwtTokenProvider.generateStaffToken(
-                staff.getStaffId(), staff.getUsername(), permissions, forceChange);
+                staff.getStaffId(), staff.getUsername(), roles, permissions, forceChange);
 
         return JwtResponse.builder()
                 .accessToken(token)

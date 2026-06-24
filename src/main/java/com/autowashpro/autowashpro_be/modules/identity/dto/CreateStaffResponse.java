@@ -6,15 +6,24 @@ import lombok.Data;
 
 @Data
 @Builder
-@Schema(description = "Response sau khi Admin tạo/reset tài khoản nhân viên")
+@Schema(description = "Response sau khi Admin/Manager tạo tài khoản nhân viên")
 public class CreateStaffResponse {
 
-    @Schema(description = "Thông tin nhân viên vừa tạo/cập nhật")
+    @Schema(description = "Thông tin nhân viên vừa tạo (status = PENDING_ACTIVATION)")
     private StaffResponse staff;
 
-    @Schema(description = "Mật khẩu tạm thời — chỉ hiện lúc tạo/reset (Welcome@2026 hoặc AutoWash@2026)", example = "Welcome@2026")
-    private String temporaryPassword;
-
-    @Schema(description = "Thông báo kết quả", example = "Staff account created. Temporary password sent to cashier@autowashpro.com")
+    @Schema(description = "Thông báo kết quả")
     private String message;
+
+    @Schema(description = "Email đã gửi link kích hoạt")
+    private String email;
+
+    @Schema(description = "GMAIL hoặc MOCK")
+    private String mailMode;
+
+    @Schema(description = "MOCK mode: URL kích hoạt để test không cần mở email")
+    private String devActionUrl;
+
+    @Schema(description = "Mật khẩu tạm — chỉ có khi Admin reset mật khẩu")
+    private String temporaryPassword;
 }

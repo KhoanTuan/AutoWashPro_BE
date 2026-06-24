@@ -10,6 +10,6 @@ import lombok.Data;
 public class UpdateStaffStatusRequest {
 
     @NotNull
-    @Schema(description = "ACTIVE = hoạt động, INACTIVE = bị khóa", example = "INACTIVE")
+    @Schema(description = "ACTIVE = hoạt động, INACTIVE = bị khóa (không đặt PENDING_ACTIVATION thủ công)", example = "INACTIVE")
     private StaffStatus status;
 }

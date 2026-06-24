@@ -16,3 +16,17 @@ ALTER TABLE security_token ALTER COLUMN is_used SET NOT NULL;
 ALTER TABLE security_token DROP COLUMN IF EXISTS used;
 ALTER TABLE security_token DROP COLUMN IF EXISTS email;
 ALTER TABLE security_token DROP COLUMN IF EXISTS user_id;
+
+ALTER TABLE security_token ALTER COLUMN customer_id DROP NOT NULL;
+ALTER TABLE IF EXISTS security_token ADD COLUMN IF NOT EXISTS staff_id BIGINT;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_security_token_staff'
+    ) THEN
+        ALTER TABLE security_token
+            ADD CONSTRAINT fk_security_token_staff
+            FOREIGN KEY (staff_id) REFERENCES staff(staff_id);
+    END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_security_token_staff ON security_token (staff_id);

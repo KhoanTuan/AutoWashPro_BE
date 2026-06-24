@@ -29,7 +29,7 @@ public class JwtResponse {
     @Schema(description = "Danh sách role (ROLE_ADMIN, ROLE_CASHIER...)", example = "[\"ROLE_ADMIN\"]")
     private List<String> roles;
 
-    @Schema(description = "Danh sách mã quyền vi mô — dùng cho PermissionGuard trên FE", example = "[\"MANAGE_STAFF\", \"CONFIG_RBAC_MATRIX\"]")
+    @Schema(description = "Danh sách mã quyền vi mô — dùng cho PermissionGuard trên FE", example = "[\"READ_STAFF\", \"CREATE_UPDATE_STAFF\", \"CONFIG_RBAC_MATRIX\"]")
     private List<String> permissions;
 
     @Schema(description = "true = FE phải chặn sidebar và buộc đổi mật khẩu ngay", example = "false")

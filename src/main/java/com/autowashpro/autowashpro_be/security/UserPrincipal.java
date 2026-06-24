@@ -18,6 +18,8 @@ public class UserPrincipal implements UserDetails {
         CUSTOMER
     }
 
+    private static final String ROLE_PREFIX = "ROLE_";
+
     private final Long id;
     private final String username;
     private final String password;
@@ -26,13 +28,13 @@ public class UserPrincipal implements UserDetails {
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(Long id, String username, String password, UserType userType,
-                         boolean active, Set<String> permissions) {
+                         boolean active, Set<String> authorityCodes) {
         this.id = id;
         this.username = username;
         this.password = password;
         this.userType = userType;
         this.active = active;
-        this.authorities = permissions.stream()
+        this.authorities = authorityCodes.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toSet());
     }
@@ -72,9 +74,29 @@ public class UserPrincipal implements UserDetails {
         return active;
     }
 
+    /** Permission codes only (excludes ROLE_* authorities). */
     public List<String> getPermissionCodes() {
         return authorities.stream()
                 .map(GrantedAuthority::getAuthority)
+                .filter(code -> !code.startsWith(ROLE_PREFIX))
+                .sorted()
                 .toList();
+    }
+
+    /** Role names for hasRole() / business rules (ROLE_ADMIN, ROLE_MANAGER, ...). */
+    public List<String> getRoleCodes() {
+        return authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(code -> code.startsWith(ROLE_PREFIX))
+                .sorted()
+                .toList();
+    }
+
+    public boolean hasRole(String roleName) {
+        return getRoleCodes().contains(roleName);
+    }
+
+    public boolean hasPermission(String permissionCode) {
+        return getPermissionCodes().contains(permissionCode);
     }
 }

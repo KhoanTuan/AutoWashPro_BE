@@ -86,7 +86,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         roles.put("ROLE_ADMIN", ensureRole("ROLE_ADMIN", "System Administrator", adminPerms));
 
         roles.put("ROLE_MANAGER", ensureRole("ROLE_MANAGER", "Station Manager", pick(permissionMap,
-                "MANAGE_STAFF", "ASSIGN_ROLE",
+                PermissionCatalog.READ_STAFF, PermissionCatalog.CREATE_UPDATE_STAFF, "ASSIGN_ROLE",
                 "VIEW_CUSTOMER_PROFILE", "MANAGE_CUSTOMER_STATUS",
                 "CREATE_WALK_IN_BOOKING", "CASHIER_CHECKIN", "VIEW_SLOT_AVAILABILITY",
                 "MONITOR_REALTIME_QUEUE", "VIEW_TECH_QUEUE"

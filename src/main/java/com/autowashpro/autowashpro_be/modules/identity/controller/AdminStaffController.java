@@ -17,7 +17,22 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import static com.autowashpro.autowashpro_be.config.OpenApiConfig.TAG_03_ADMIN_STAFF;
+import static com.autowashpro.autowashpro_be.modules.identity.PermissionCatalog.CREATE_UPDATE_STAFF;
+import static com.autowashpro.autowashpro_be.modules.identity.PermissionCatalog.READ_STAFF;
 
+/**
+ * Tầng presentation — chỉ nhận HTTP request, validate (@Valid), phân quyền (@PreAuthorize),
+ * gọi {@link StaffService} và trả ResponseEntity. Không chứa business logic hay truy vấn DB.
+ *
+ * <p>Permission matrix (Phase A):
+ * <ul>
+ *   <li>{@code READ_STAFF} — Admin, Manager</li>
+ *   <li>{@code CREATE_UPDATE_STAFF} — Admin, Manager</li>
+ *   <li>{@code DELETE_STAFF} — Admin only (Phase B)</li>
+ *   <li>{@code ASSIGN_ROLE} — Admin, Manager</li>
+ *   <li>Technician / Cashier — không có quyền staff admin</li>
+ * </ul>
+ */
 @RestController
 @RequestMapping("/api/v1/admin/staffs")
 @RequiredArgsConstructor
@@ -28,21 +43,21 @@ public class AdminStaffController {
     private final StaffService staffService;
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAuthority('MANAGE_STAFF')")
+    @PreAuthorize("hasAuthority('" + READ_STAFF + "')")
     @Operation(operationId = "03-01-stats", summary = "[READ] Thống kê Staff & Performance")
     public ResponseEntity<StaffSummaryStatsResponse> stats() {
         return ResponseEntity.ok(staffService.getSummaryStats());
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('MANAGE_STAFF')")
+    @PreAuthorize("hasAuthority('" + READ_STAFF + "')")
     @Operation(
             operationId = "03-02-list",
             summary = "[READ] Danh sách nhân viên (phân trang)",
-            description = "Query: `status` (ACTIVE|INACTIVE), `keyword`, `page`, `size`"
+            description = "Query: `status` (ACTIVE|INACTIVE|PENDING_ACTIVATION), `keyword`, `page`, `size`. Cần `READ_STAFF`."
     )
     public ResponseEntity<PageResponse<StaffResponse>> list(
-            @Parameter(description = "ACTIVE hoặc INACTIVE") @RequestParam(required = false) String status,
+            @Parameter(description = "ACTIVE, INACTIVE hoặc PENDING_ACTIVATION") @RequestParam(required = false) String status,
             @Parameter(description = "Tìm theo tên, username, email, SĐT") @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -51,7 +66,7 @@ public class AdminStaffController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('MANAGE_STAFF')")
+    @PreAuthorize("hasAuthority('" + READ_STAFF + "')")
     @Operation(operationId = "03-03-detail", summary = "[READ] Chi tiết nhân viên")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK"),
@@ -62,18 +77,22 @@ public class AdminStaffController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
     @Operation(
             operationId = "03-04-create",
             summary = "[CREATE] Tạo tài khoản nhân viên",
-            description = "Admin provisioning — trả `temporaryPassword`. Mật khẩu tạm: `Welcome@2026`"
+            description = """
+                    Cần `CREATE_UPDATE_STAFF`. Admin hoặc Manager tạo tài khoản.
+                    Nhân viên ở `PENDING_ACTIVATION` cho đến khi xác thực email.
+                    Manager không được gán `ROLE_ADMIN` / `ROLE_MANAGER`.
+                    """
     )
     public ResponseEntity<CreateStaffResponse> create(@Valid @RequestBody CreateStaffRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(staffService.provisionStaff(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(staffService.createStaff(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('MANAGE_STAFF')")
+    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
     @Operation(operationId = "03-05-update", summary = "[UPDATE] Cập nhật thông tin nhân viên")
     public ResponseEntity<StaffResponse> update(
             @PathVariable Long id,
@@ -83,23 +102,23 @@ public class AdminStaffController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('MANAGE_STAFF')")
+    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
     @Operation(operationId = "03-06-update-account-status", summary = "[UPDATE] Khóa / mở khóa tài khoản (ACTIVE ↔ INACTIVE)")
     public ResponseEntity<StaffResponse> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStaffStatusRequest request
     ) {
-        return ResponseEntity.ok(staffService.updateStatus(id, request.getStatus()));
+        return ResponseEntity.ok(staffService.updateStatus(id, request));
     }
 
     @PatchMapping("/{id}/work-status")
-    @PreAuthorize("hasAuthority('MANAGE_STAFF')")
+    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
     @Operation(operationId = "03-07-update-work-status", summary = "[UPDATE] Trạng thái ca (IDLE / BUSY / ON_BREAK / OFF)")
     public ResponseEntity<StaffResponse> updateWorkStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStaffWorkStatusRequest request
     ) {
-        return ResponseEntity.ok(staffService.updateWorkStatus(id, request.getWorkStatus()));
+        return ResponseEntity.ok(staffService.updateWorkStatus(id, request));
     }
 
     @PutMapping("/{staffId}/roles")
@@ -107,7 +126,7 @@ public class AdminStaffController {
     @Operation(
             operationId = "03-08-assign-roles",
             summary = "[UPDATE] Gán vai trò cho nhân viên",
-            description = "Ghi đè toàn bộ `roleIds`. Lấy role từ tag **06 - Roles** → `GET /api/v1/roles`"
+            description = "Cần `ASSIGN_ROLE`. Ghi đè toàn bộ `roleIds`."
     )
     public ResponseEntity<StaffResponse> assignRoles(
             @PathVariable Long staffId,
@@ -117,11 +136,11 @@ public class AdminStaffController {
     }
 
     @PostMapping("/{id}/reset-password")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
     @Operation(
             operationId = "03-09-reset-password",
-            summary = "[ACTION] Admin reset mật khẩu nhân viên",
-            description = "Reset về `AutoWash@2026`, bật `requirePasswordChange`"
+            summary = "[ACTION] Reset mật khẩu nhân viên",
+            description = "Cần `CREATE_UPDATE_STAFF`. Reset về `AutoWash@2026`, bật `requirePasswordChange`."
     )
     public ResponseEntity<CreateStaffResponse> resetPassword(@PathVariable Long id) {
         return ResponseEntity.ok(staffService.resetPassword(id));

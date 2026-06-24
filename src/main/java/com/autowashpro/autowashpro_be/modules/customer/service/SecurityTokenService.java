@@ -6,6 +6,7 @@ import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.SecurityToken;
 import com.autowashpro.autowashpro_be.modules.customer.entity.SecurityTokenType;
 import com.autowashpro.autowashpro_be.modules.customer.repository.SecurityTokenRepository;
+import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,12 +42,42 @@ public class SecurityTokenService {
         return securityTokenRepository.save(token);
     }
 
+    @Transactional
+    public SecurityToken createStaffToken(Staff staff, SecurityTokenType type) {
+        securityTokenRepository.invalidateActiveStaffTokens(staff, type);
+
+        int ttlMinutes = type == SecurityTokenType.STAFF_ACCOUNT_ACTIVATION
+                ? securityTokenProperties.getEmailVerificationMinutes()
+                : securityTokenProperties.getPasswordResetMinutes();
+
+        SecurityToken token = SecurityToken.builder()
+                .staff(staff)
+                .tokenType(type)
+                .token(generateSecureToken())
+                .expiresAt(Instant.now().plusSeconds(ttlMinutes * 60L))
+                .build();
+
+        return securityTokenRepository.save(token);
+    }
+
     public SecurityToken requireValidToken(String rawToken, SecurityTokenType expectedType) {
         SecurityToken token = securityTokenRepository.findByToken(rawToken)
                 .orElseThrow(() -> new BadRequestException("Invalid or expired security token"));
 
         if (token.getTokenType() != expectedType) {
             throw new BadRequestException("Invalid token type for this action");
+        }
+        if (expectedType == SecurityTokenType.EMAIL_VERIFICATION && token.getCustomer() == null) {
+            throw new BadRequestException("Invalid or expired security token");
+        }
+        if (expectedType == SecurityTokenType.STAFF_ACCOUNT_ACTIVATION && token.getStaff() == null) {
+            throw new BadRequestException("Invalid or expired security token");
+        }
+        if (expectedType == SecurityTokenType.STAFF_PASSWORD_RESET && token.getStaff() == null) {
+            throw new BadRequestException("Invalid or expired security token");
+        }
+        if (expectedType == SecurityTokenType.PASSWORD_RESET && token.getCustomer() == null) {
+            throw new BadRequestException("Invalid or expired security token");
         }
         if (token.isUsed()) {
             throw new BadRequestException("Security token has already been used");
