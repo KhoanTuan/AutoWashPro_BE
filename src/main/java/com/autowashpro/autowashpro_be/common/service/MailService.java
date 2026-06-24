@@ -59,8 +59,33 @@ public class MailService {
         );
     }
 
+    public SendResult sendStaffAccountActivationEmail(String toEmail, String fullName, String username, String token) {
+        String verificationUrl = frontendProperties.getUrl() + "/staff/verify-email?token=" + token;
+        return sendTemplateEmail(
+                toEmail,
+                "AutoWash Pro — Kích hoạt tài khoản nhân viên",
+                "staff-account-verify",
+                Map.of(
+                        "fullName", fullName,
+                        "username", username,
+                        "verificationUrl", verificationUrl,
+                        "brandName", "AutoWash Pro"
+                ),
+                verificationUrl
+        );
+    }
+
     public SendResult sendPasswordResetEmail(String toEmail, String fullName, String token) {
         String resetUrl = frontendProperties.getUrl() + "/reset-password?token=" + token;
+        return sendPasswordResetEmail(toEmail, fullName, token, resetUrl);
+    }
+
+    public SendResult sendStaffPasswordResetEmail(String toEmail, String fullName, String token) {
+        String resetUrl = frontendProperties.getUrl() + "/staff/reset-password?token=" + token;
+        return sendPasswordResetEmail(toEmail, fullName, token, resetUrl);
+    }
+
+    private SendResult sendPasswordResetEmail(String toEmail, String fullName, String token, String resetUrl) {
         return sendTemplateEmail(
                 toEmail,
                 "AutoWash Pro — Đặt lại mật khẩu",

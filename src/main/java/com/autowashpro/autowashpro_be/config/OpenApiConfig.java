@@ -77,7 +77,7 @@ public class OpenApiConfig {
                         tag(TAG_02_OMNI_AUTH,
                                 "Omni-Login — `POST /api/v1/auth/login` (Quoc2 `/login-internal`)."),
                         tag(TAG_03_ADMIN_STAFF,
-                                "CRUD nhân sự — `/admin/staff`. Permission: `MANAGE_STAFF`, `ASSIGN_ROLE`."),
+                                "CRUD nhân sự — `/admin/staff`. Permission: `READ_STAFF`, `CREATE_UPDATE_STAFF`, `DELETE_STAFF`, `ASSIGN_ROLE`."),
                         tag(TAG_04_ADMIN_CUSTOMER,
                                 "CRUD khách hàng — `/admin/customers`. Permission: `VIEW_CUSTOMER_PROFILE`, `MANAGE_CUSTOMER_STATUS`."),
                         tag(TAG_05_ADMIN_BOOKING,

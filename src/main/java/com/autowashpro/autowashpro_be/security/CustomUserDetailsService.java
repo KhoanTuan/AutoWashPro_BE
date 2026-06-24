@@ -76,10 +76,16 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     public UserPrincipal toStaffPrincipal(Staff staff) {
-        Set<String> permissions = new HashSet<>();
+        Set<String> authorityCodes = new HashSet<>();
         for (Role role : staff.getRoles()) {
+            if (role.getRoleName() != null) {
+                authorityCodes.add(role.getRoleName());
+            }
             for (Permission permission : role.getPermissions()) {
-                permissions.add(permission.getPermissionCode());
+                if (permission.getPermissionCode() != null
+                        && Boolean.TRUE.equals(permission.getEnabled())) {
+                    authorityCodes.add(permission.getPermissionCode());
+                }
             }
         }
         return new UserPrincipal(
@@ -88,7 +94,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 staff.getPasswordHash(),
                 UserPrincipal.UserType.STAFF,
                 staff.getStatus() == StaffStatus.ACTIVE,
-                permissions
+                authorityCodes
         );
     }
 

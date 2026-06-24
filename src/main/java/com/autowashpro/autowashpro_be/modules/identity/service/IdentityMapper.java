@@ -40,6 +40,7 @@ public class IdentityMapper {
                 .roles(roles)
                 .createdAt(staff.getCreatedAt())
                 .updatedAt(staff.getUpdatedAt())
+                .deletedAt(staff.getDeletedAt())
                 .build();
     }
 

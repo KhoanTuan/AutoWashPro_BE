@@ -4,6 +4,7 @@ import com.autowashpro.autowashpro_be.common.base.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -72,4 +73,11 @@ public class Staff extends BaseEntity {
     )
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
 }

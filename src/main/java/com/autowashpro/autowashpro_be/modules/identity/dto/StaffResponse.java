@@ -32,7 +32,7 @@ public class StaffResponse {
     @Schema(description = "true = nhân viên phải đổi mật khẩu ở lần login tiếp theo", example = "false")
     private Boolean requirePasswordChange;
 
-    @Schema(description = "Trạng thái tài khoản ACTIVE/INACTIVE", example = "ACTIVE")
+    @Schema(description = "Trạng thái tài khoản PENDING_ACTIVATION | ACTIVE | INACTIVE", example = "ACTIVE")
     private StaffStatus status;
 
     @Schema(description = "Trạng thái ca: IDLE | BUSY | ON_BREAK | OFF", example = "IDLE")
@@ -61,4 +61,7 @@ public class StaffResponse {
 
     @Schema(description = "Thời gian cập nhật gần nhất")
     private LocalDateTime updatedAt;
+
+    @Schema(description = "Thời điểm soft delete — null nếu chưa xóa")
+    private LocalDateTime deletedAt;
 }

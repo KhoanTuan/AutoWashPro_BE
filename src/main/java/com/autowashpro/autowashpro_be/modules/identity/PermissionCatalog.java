@@ -22,6 +22,11 @@ public final class PermissionCatalog {
             "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_TECHNICIAN", "ROLE_CASHIER"
     );
 
+    /** Permission codes for staff admin APIs (Phase A — granular CRUD). */
+    public static final String READ_STAFF = "READ_STAFF";
+    public static final String CREATE_UPDATE_STAFF = "CREATE_UPDATE_STAFF";
+    public static final String DELETE_STAFF = "DELETE_STAFF";
+
     @Getter
     @RequiredArgsConstructor
     public static class Definition {
@@ -34,7 +39,9 @@ public final class PermissionCatalog {
 
     public static final List<Definition> ALL = List.of(
             // ── Phase 1: Identity & RBAC ──
-            def("MANAGE_STAFF", "Quản lý nhân sự (CRUD)", "Identity & RBAC", PHASE_CORE),
+            def(READ_STAFF, "Xem danh sách / chi tiết nhân viên", "Identity & RBAC", PHASE_CORE),
+            def(CREATE_UPDATE_STAFF, "Tạo / sửa / khóa nhân viên", "Identity & RBAC", PHASE_CORE),
+            def(DELETE_STAFF, "Xóa nhân viên (soft/hard)", "Identity & RBAC", PHASE_CORE),
             def("ASSIGN_ROLE", "Gán vai trò cho nhân viên", "Identity & RBAC", PHASE_CORE),
             def("MANAGE_ROLE", "Tạo / sửa / xóa vai trò", "Identity & RBAC", PHASE_CORE),
             def("CONFIG_RBAC_MATRIX", "Cấu hình ma trận phân quyền", "Identity & RBAC", PHASE_CORE),

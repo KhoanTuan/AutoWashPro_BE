@@ -1,8 +1,13 @@
 package com.autowashpro.autowashpro_be.modules.identity.controller;
 
+import com.autowashpro.autowashpro_be.common.dto.MessageResponse;
+import com.autowashpro.autowashpro_be.modules.customer.dto.VerifyEmailTokenResponse;
 import com.autowashpro.autowashpro_be.modules.identity.dto.ChangePasswordRequest;
 import com.autowashpro.autowashpro_be.modules.identity.dto.JwtResponse;
 import com.autowashpro.autowashpro_be.modules.identity.dto.LoginRequest;
+import com.autowashpro.autowashpro_be.modules.identity.dto.StaffEmailForgotPasswordRequest;
+import com.autowashpro.autowashpro_be.modules.identity.dto.StaffForgotPasswordResponse;
+import com.autowashpro.autowashpro_be.modules.identity.dto.StaffResetPasswordTokenRequest;
 import com.autowashpro.autowashpro_be.modules.identity.service.AuthService;
 import com.autowashpro.autowashpro_be.common.openapi.ApiHidden;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
@@ -39,7 +44,7 @@ public class AuthController {
                     Một ô `loginId` (username staff / username khách / email / SĐT) + password.
                     - Staff trước → redirect `/admin/dashboard`
                     - Khách hàng (SĐT, email hoặc username) → redirect `/customer/dashboard`
-                    - Tài khoản email phải đã xác thực (`ACTIVE`)
+                    - Tài khoản email (staff/customer) phải đã xác thực (`ACTIVE`)
                     """
     )
     @ApiResponses({
@@ -49,6 +54,57 @@ public class AuthController {
     })
     public ResponseEntity<JwtResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @GetMapping("/staff/verify-email")
+    @SecurityRequirements
+    @Operation(
+            operationId = "02-04-staff-verify-email",
+            summary = "[PUBLIC] Kích hoạt tài khoản nhân viên qua email",
+            description = "FE route: `/staff/verify-email?token=...` — chuyển staff từ `PENDING_ACTIVATION` sang `ACTIVE`."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Kích hoạt thành công"),
+            @ApiResponse(responseCode = "400", description = "Token không hợp lệ hoặc đã hết hạn")
+    })
+    public ResponseEntity<VerifyEmailTokenResponse> verifyStaffEmail(@RequestParam String token) {
+        return ResponseEntity.ok(authService.verifyStaffEmail(token));
+    }
+
+    @PostMapping("/staff/forgot-password")
+    @SecurityRequirements
+    @Operation(
+            operationId = "02-05-staff-forgot-password",
+            summary = "[PUBLIC] Quên mật khẩu nhân viên — gửi link email",
+            description = "Luôn trả 200 (không lộ email có tồn tại hay không). Chỉ tài khoản staff `ACTIVE` mới nhận email."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Yêu cầu đã được xử lý"),
+            @ApiResponse(responseCode = "400", description = "Email không hợp lệ")
+    })
+    public ResponseEntity<StaffForgotPasswordResponse> forgotStaffPassword(
+            @Valid @RequestBody StaffEmailForgotPasswordRequest request
+    ) {
+        return ResponseEntity.ok(authService.requestStaffPasswordResetByEmail(request.getEmail()));
+    }
+
+    @PostMapping("/staff/reset-password")
+    @SecurityRequirements
+    @Operation(
+            operationId = "02-06-staff-reset-password",
+            summary = "[PUBLIC] Đặt lại mật khẩu nhân viên qua token email",
+            description = "FE route: `/staff/reset-password?token=...`"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Đặt lại mật khẩu thành công"),
+            @ApiResponse(responseCode = "400", description = "Token không hợp lệ hoặc mật khẩu không khớp")
+    })
+    public ResponseEntity<MessageResponse> resetStaffPassword(
+            @Valid @RequestBody StaffResetPasswordTokenRequest request
+    ) {
+        authService.resetStaffPasswordByToken(request);
+        return ResponseEntity.ok(MessageResponse.of(
+                "Password reset successfully. Please login with your new password."));
     }
 
     @GetMapping("/me")
