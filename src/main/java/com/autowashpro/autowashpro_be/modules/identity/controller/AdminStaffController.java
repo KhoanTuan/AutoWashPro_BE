@@ -148,15 +148,40 @@ public class AdminStaffController {
         return ResponseEntity.ok(staffService.resetPassword(id));
     }
 
+    @PostMapping("/{id}/resend-activation")
+    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
+    @Operation(
+            operationId = "03-10-resend-activation",
+            summary = "[ACTION] Gửi lại email kích hoạt tài khoản",
+            description = "Chỉ staff `PENDING_ACTIVATION`. Tạo token mới và gửi lại link `/staff/verify-email`."
+    )
+    public ResponseEntity<CreateStaffResponse> resendActivation(@PathVariable Long id) {
+        return ResponseEntity.ok(staffService.resendActivationEmail(id));
+    }
+
+    @GetMapping("/audit-logs")
+    @PreAuthorize("hasAuthority('" + DELETE_STAFF + "')")
+    @Operation(
+            operationId = "03-11-audit-logs",
+            summary = "[READ] Audit log thao tác nhân sự",
+            description = "Cần `DELETE_STAFF` (Admin). Ghi nhận soft/hard delete, restore, resend activation."
+    )
+    public ResponseEntity<PageResponse<AdminAuditLogResponse>> auditLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(staffService.listStaffAuditLogs(page, size));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('" + DELETE_STAFF + "')")
     @Operation(
-            operationId = "03-10-delete",
+            operationId = "03-12-delete",
             summary = "[DELETE] Xóa nhân viên (soft/hard)",
             description = """
                     Cần `DELETE_STAFF` — chỉ Admin.
                     - Mặc định soft delete: gắn `deletedAt`, khóa tài khoản, giải phóng username/email.
-                    - `hardDelete=true`: xóa vĩnh viễn khỏi DB.
+                    - `hardDelete=true`: xóa vĩnh viễn khỏi DB (chặn nếu còn booking/task hoặc BUSY).
                     - Không xóa chính mình hoặc admin cuối cùng.
                     """
     )
@@ -170,7 +195,7 @@ public class AdminStaffController {
     @PostMapping("/{id}/restore")
     @PreAuthorize("hasAuthority('" + DELETE_STAFF + "')")
     @Operation(
-            operationId = "03-11-restore",
+            operationId = "03-13-restore",
             summary = "[ACTION] Khôi phục nhân viên đã soft delete",
             description = "Cần `DELETE_STAFF`. Khôi phục username/email gốc, đặt `INACTIVE` — Admin bật lại ACTIVE thủ công."
     )

@@ -38,8 +38,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR c.phoneNumber LIKE CONCAT('%', :keyword, '%') " +
            "OR LOWER(c.username) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(c.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR EXISTS (SELECT v FROM Vehicle v WHERE v.customer = c AND UPPER(v.licensePlate) LIKE UPPER(CONCAT('%', :keyword, '%'))))")
+           "OR LOWER(c.email) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Customer> search(@Param("status") CustomerStatus status,
                           @Param("keyword") String keyword,
                           Pageable pageable);

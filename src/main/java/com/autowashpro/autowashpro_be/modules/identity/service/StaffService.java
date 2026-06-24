@@ -52,6 +52,8 @@ public class StaffService {
     private final MailService mailService;
     private final SecurityTokenService securityTokenService;
     private final SecurityTokenRepository securityTokenRepository;
+    private final StaffDeletionGuard staffDeletionGuard;
+    private final AdminAuditLogService adminAuditLogService;
 
     private static final String DELETE_SUFFIX_MARKER = "_deleted_";
 
@@ -193,10 +195,7 @@ public class StaffService {
 
         staff = staffRepository.save(staff);
 
-        SecurityToken securityToken = securityTokenService.createStaffToken(
-                staff, SecurityTokenType.STAFF_ACCOUNT_ACTIVATION);
-        MailService.SendResult sendResult = mailService.sendStaffAccountActivationEmail(
-                email, staff.getFullName(), staff.getUsername(), securityToken.getToken());
+        MailService.SendResult sendResult = sendStaffActivationEmail(staff);
 
         if (!sendResult.success()) {
             throw new BadRequestException("Failed to send activation email: " + sendResult.message());
@@ -213,6 +212,43 @@ public class StaffService {
         }
 
         return builder.build();
+    }
+
+    @Transactional
+    public CreateStaffResponse resendActivationEmail(Long id) {
+        Staff staff = requireActiveStaff(id);
+        if (staff.getStatus() != StaffStatus.PENDING_ACTIVATION) {
+            throw new BadRequestException("Only PENDING_ACTIVATION staff can resend activation email");
+        }
+
+        MailService.SendResult sendResult = sendStaffActivationEmail(staff);
+        if (!sendResult.success()) {
+            throw new BadRequestException("Failed to send activation email: " + sendResult.message());
+        }
+
+        adminAuditLogService.logStaffAction(
+                AdminAuditLogService.ACTION_STAFF_RESEND_ACTIVATION,
+                id,
+                "email=" + staff.getEmail());
+
+        CreateStaffResponse.CreateStaffResponseBuilder builder = CreateStaffResponse.builder()
+                .staff(mapper.toStaffResponse(staff))
+                .message("Activation email resent to " + staff.getEmail())
+                .email(staff.getEmail())
+                .mailMode(sendResult.mode());
+
+        if ("MOCK".equalsIgnoreCase(sendResult.mode())) {
+            builder.devActionUrl(sendResult.actionUrl());
+        }
+
+        return builder.build();
+    }
+
+    private MailService.SendResult sendStaffActivationEmail(Staff staff) {
+        SecurityToken securityToken = securityTokenService.createStaffToken(
+                staff, SecurityTokenType.STAFF_ACCOUNT_ACTIVATION);
+        return mailService.sendStaffAccountActivationEmail(
+                staff.getEmail(), staff.getFullName(), staff.getUsername(), securityToken.getToken());
     }
 
     @Transactional
@@ -369,9 +405,15 @@ public class StaffService {
             throw new BadRequestException("Cannot delete the last admin account");
         }
 
+        staffDeletionGuard.ensureSafeToDelete(staff, hardDelete);
+
         if (hardDelete) {
             securityTokenRepository.deleteByStaff(staff);
             staffRepository.delete(staff);
+            adminAuditLogService.logStaffAction(
+                    AdminAuditLogService.ACTION_STAFF_HARD_DELETE,
+                    id,
+                    "username=" + staff.getUsername());
             return DeleteStaffResponse.builder()
                     .staffId(id)
                     .deletionType("HARD")
@@ -380,6 +422,7 @@ public class StaffService {
         }
 
         if (!staff.isDeleted()) {
+            String originalUsername = staff.getUsername();
             String suffix = DELETE_SUFFIX_MARKER + UUID.randomUUID().toString().substring(0, 8);
             staff.setUsername(truncateWithSuffix(staff.getUsername(), suffix, 50));
             staff.setEmail(truncateWithSuffix(MailService.normalizeEmail(staff.getEmail()), suffix, 100));
@@ -390,6 +433,10 @@ public class StaffService {
             staff.setWorkStatus(StaffWorkStatus.OFF);
             staff.setDeletedAt(LocalDateTime.now());
             staffRepository.save(staff);
+            adminAuditLogService.logStaffAction(
+                    AdminAuditLogService.ACTION_STAFF_SOFT_DELETE,
+                    id,
+                    "username=" + originalUsername);
         }
 
         return DeleteStaffResponse.builder()
@@ -422,7 +469,18 @@ public class StaffService {
         staff.setDeletedAt(null);
         staff.setStatus(StaffStatus.INACTIVE);
 
-        return mapper.toStaffResponse(staffRepository.save(staff));
+        Staff restored = staffRepository.save(staff);
+        adminAuditLogService.logStaffAction(
+                AdminAuditLogService.ACTION_STAFF_RESTORE,
+                id,
+                "username=" + restored.getUsername());
+
+        return mapper.toStaffResponse(restored);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AdminAuditLogResponse> listStaffAuditLogs(int page, int size) {
+        return adminAuditLogService.listStaffAuditLogs(page, size);
     }
 
     private Set<Role> resolveRoles(List<Integer> roleIds) {
