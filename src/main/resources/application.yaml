@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: AutoWashPro_BE
+  config:
+    import: optional:classpath:application-local.yaml
+  datasource:
+    url: jdbc:postgresql://localhost:5432/autowashpro
+    username: postgres
+    password: 0325847495@Abc
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  docker:
+    compose:
+      enabled: false
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: AutoWashProSecretKeyForJWT2026MustBeAtLeast256BitsLong!!
+    expiration-ms: 86400000
+  otp:
+    ttl-seconds: 120
+  speedsms:
+    enabled: false
+    access-token: ${SPEEDSMS_ACCESS_TOKEN:}
+    api-url: https://api.speedsms.vn/index.php/sms/send
+    sms-type: 2
+    sender: ${SPEEDSMS_SENDER:}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    doc-expansion: list
+    display-operation-id: true
+    filter: true
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    org.springframework.security: INFO
