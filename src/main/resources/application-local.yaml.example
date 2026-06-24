@@ -1,12 +1,25 @@
-# Copy thành application-local.yaml (file đó đã gitignore)
+# Sao chép thành application-local.yaml (đã gitignore)
 
 app:
   mail:
     mode: GMAIL
+    # MOCK = in link ra console + trả devActionUrl | GMAIL = gửi email Thymeleaf thật
   gmail:
-    username: your_gmail@gmail.com
-    app-password: your_gmail_app_password
+    username: your.email@gmail.com
+    app-password: YOUR_GMAIL_APP_PASSWORD
+    from-name: AutoWash Pro
   speedsms:
-    enabled: true
+    enabled: false
     access-token: your_speedsms_api_access_token
     sender: ""
+
+spring:
+  mail:
+    username: your.email@gmail.com
+    password: YOUR_GMAIL_APP_PASSWORD
+    properties:
+      mail:
+        debug: true
+        smtp:
+          ssl:
+            trust: smtp.gmail.com
