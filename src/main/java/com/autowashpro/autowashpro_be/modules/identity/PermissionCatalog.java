@@ -22,6 +22,12 @@ public final class PermissionCatalog {
             "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_TECHNICIAN", "ROLE_CASHIER"
     );
 
+    /** Roles whose permission matrix cannot be edited via API (always all enabled perms). */
+    public static final Set<String> PERMISSION_LOCKED_ROLE_NAMES = Set.of("ROLE_ADMIN");
+
+    /** Roles that cannot be deleted under any circumstance. */
+    public static final Set<String> NON_DELETABLE_ROLE_NAMES = Set.of("ROLE_ADMIN");
+
     /** Permission codes for staff admin APIs (Phase A — granular CRUD). */
     public static final String READ_STAFF = "READ_STAFF";
     public static final String CREATE_UPDATE_STAFF = "CREATE_UPDATE_STAFF";

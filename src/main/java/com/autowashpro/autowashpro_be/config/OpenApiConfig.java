@@ -34,8 +34,8 @@ public class OpenApiConfig {
                         .description("""
                                 Tài liệu API **đang tích hợp** cho **Quoc2 FE** + **Customer Email Auth**.
 
-                                API legacy (OTP/SĐT, staff profile, CRUD role…) vẫn chạy nhưng **ẩn khỏi Swagger**.
-                                Bật lại: gỡ `@ApiHidden` trên method tương ứng.
+                                API legacy (OTP/SĐT, staff profile…) vẫn chạy nhưng **ẩn khỏi Swagger**.
+                                Tag **06–07** (Roles + RBAC Matrix) đã bật đầy đủ.
 
                                 **Swagger UI:** `http://localhost:8080/swagger-ui.html`
 
@@ -50,8 +50,8 @@ public class OpenApiConfig {
                                 | 03 | Admin Staff (Quoc2) |
                                 | 04 | Admin Customer — list, create, update |
                                 | 05 | Admin Booking Flow 1 (Quoc2) |
-                                | 06 | Roles — danh sách (dropdown) |
-                                | 07 | Permission Matrix (Quoc2) |
+                                | 06 | Roles — CRUD + custom role (`MANAGE_ROLE`) |
+                                | 07 | RBAC Matrix — gán permission (`CONFIG_RBAC_MATRIX`) |
 
                                 ---
 
@@ -83,9 +83,9 @@ public class OpenApiConfig {
                         tag(TAG_05_ADMIN_BOOKING,
                                 "Flow 1 booking — `/admin/bookings` + Quick Booking. Catalog → CRUD → Pay → Assign → Accept → Start → Complete."),
                         tag(TAG_06_ROLES,
-                                "Danh sách Role — dropdown trên trang Roles (Quoc2)."),
+                                "Quản lý Role — CRUD custom role. `MANAGE_ROLE`. System roles không xóa; `ROLE_ADMIN` bảo vệ tuyệt đối."),
                         tag(TAG_07_PERMISSION_MATRIX,
-                                "Ma trận phân quyền — `/admin/roles`. Permission: `CONFIG_RBAC_MATRIX`. Phase 1 = enabled, Phase 2 = sắp có.")
+                                "Ma trận RBAC — GET /rbac/matrix, gán permission. CONFIG_RBAC_MATRIX. ROLE_ADMIN không sửa permission.")
                 ))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()

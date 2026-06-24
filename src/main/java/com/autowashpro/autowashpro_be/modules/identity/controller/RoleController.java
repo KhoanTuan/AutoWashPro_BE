@@ -1,7 +1,6 @@
 package com.autowashpro.autowashpro_be.modules.identity.controller;
 
 import com.autowashpro.autowashpro_be.common.dto.MessageResponse;
-import com.autowashpro.autowashpro_be.common.openapi.ApiHidden;
 import com.autowashpro.autowashpro_be.modules.identity.dto.*;
 import com.autowashpro.autowashpro_be.modules.identity.service.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,36 +31,52 @@ public class RoleController {
     // ── Tag 06: Roles CRUD ────────────────────────────────────────────
 
     @GetMapping("/roles")
-    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX') or hasAuthority('ASSIGN_ROLE')")
+    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX') or hasAuthority('ASSIGN_ROLE') or hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
-    @Operation(operationId = "06-01-list-roles", summary = "[READ] Danh sách Role (+ permissions, staffCount)")
+    @Operation(
+            operationId = "06-01-list-roles",
+            summary = "[READ] Danh sách Role (+ permissions, staffCount)",
+            description = "Dùng cho dropdown gán role hoặc trang quản trị roles."
+    )
     public ResponseEntity<List<RoleResponse>> getRoles() {
         return ResponseEntity.ok(roleService.getAllRoles());
     }
 
     @GetMapping("/roles/{roleId}")
-    @ApiHidden
-    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX')")
+    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX') or hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
-    @Operation(operationId = "06-02-detail-role", summary = "[READ] Chi tiết Role")
+    @Operation(operationId = "06-02-detail-role", summary = "[READ] Chi tiết Role kèm permissions")
     public ResponseEntity<RoleResponse> getRoleById(@PathVariable Integer roleId) {
         return ResponseEntity.ok(roleService.getRoleById(roleId));
     }
 
     @PostMapping("/roles")
-    @ApiHidden
     @PreAuthorize("hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
-    @Operation(operationId = "06-03-create-role", summary = "[CREATE] Tạo custom role (format ROLE_*)")
+    @Operation(
+            operationId = "06-03-create-role",
+            summary = "[CREATE] Tạo custom role",
+            description = """
+                    `roleName` phải theo format `ROLE_*` (vd. `ROLE_SUPERVISOR`).
+                    Không được trùng tên system role. Có thể gán `permissionIds` ngay khi tạo.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Tạo thành công"),
+            @ApiResponse(responseCode = "400", description = "Tên trùng hoặc permission không hợp lệ")
+    })
     public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody CreateRoleRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(roleService.createRole(request));
     }
 
     @PutMapping("/roles/{roleId}")
-    @ApiHidden
     @PreAuthorize("hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
-    @Operation(operationId = "06-04-update-role", summary = "[UPDATE] Cập nhật mô tả role")
+    @Operation(
+            operationId = "06-04-update-role",
+            summary = "[UPDATE] Cập nhật mô tả role",
+            description = "Chỉ đổi `description` — không đổi `roleName`."
+    )
     public ResponseEntity<RoleResponse> updateRole(
             @PathVariable Integer roleId,
             @Valid @RequestBody UpdateRoleRequest request
@@ -70,23 +85,52 @@ public class RoleController {
     }
 
     @DeleteMapping("/roles/{roleId}")
-    @ApiHidden
     @PreAuthorize("hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
-    @Operation(operationId = "06-05-delete-role", summary = "[DELETE] Xóa role (chặn system role & staff đang gán)")
+    @Operation(
+            operationId = "06-05-delete-role",
+            summary = "[DELETE] Xóa custom role",
+            description = """
+                    - `ROLE_ADMIN` và system roles **không xóa được**.
+                    - Custom role phải không còn staff nào được gán.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Xóa thành công"),
+            @ApiResponse(responseCode = "400", description = "System role / còn staff / ROLE_ADMIN")
+    })
     public ResponseEntity<MessageResponse> deleteRole(@PathVariable Integer roleId) {
         roleService.deleteRole(roleId);
-        return ResponseEntity.ok(MessageResponse.of("Role deleted"));
+        return ResponseEntity.ok(MessageResponse.of("Role deleted successfully"));
     }
 
     // ── Tag 07: Permission Matrix ───────────────────────────────────
+
+    @GetMapping("/rbac/matrix")
+    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX')")
+    @Tag(name = TAG_07_PERMISSION_MATRIX)
+    @Operation(
+            operationId = "07-00-rbac-matrix",
+            summary = "[READ] Ma trận RBAC đầy đủ (permissions + roles)",
+            description = """
+                    Trả về dữ liệu cho UI ma trận checkbox.
+                    Mỗi role có `permissionEditable`, `deletable` để FE disable nút phù hợp.
+                    `ROLE_ADMIN`: permissionEditable=false, deletable=false.
+                    """
+    )
+    public ResponseEntity<RoleMatrixResponse> getRbacMatrix(
+            @Parameter(description = "Bao gồm permission Flow 2 chưa bật")
+            @RequestParam(defaultValue = "false") boolean includeDisabled
+    ) {
+        return ResponseEntity.ok(roleService.getRbacMatrix(includeDisabled));
+    }
 
     @GetMapping("/permissions")
     @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX')")
     @Tag(name = TAG_07_PERMISSION_MATRIX)
     @Operation(
             operationId = "07-01-list-permissions",
-            summary = "[READ] Danh sách Permission (ma trận RBAC)",
+            summary = "[READ] Danh sách Permission",
             description = "`includeDisabled=true` → hiển thị cả Flow 2 (sắp có, chưa gán được)"
     )
     public ResponseEntity<List<PermissionSummary>> getPermissions(
@@ -102,11 +146,15 @@ public class RoleController {
     @Operation(
             operationId = "07-02-update-role-permissions",
             summary = "[UPDATE] Gán permissions cho Role (ghi đè toàn bộ)",
-            description = "Body: `{ \"permissionIds\": [1, 2, 5] }` — chỉ permission `enabled=true`"
+            description = """
+                    Body: `{ "permissionIds": [1, 2, 5] }` — chỉ permission `enabled=true`.
+                    `ROLE_ADMIN` **không cho sửa** (system-managed).
+                    System role khác phải giữ ít nhất 1 permission.
+                    """
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "400", description = "permissionId không hợp lệ hoặc chưa mở (Flow 2)"),
+            @ApiResponse(responseCode = "400", description = "ROLE_ADMIN locked / permission không hợp lệ"),
             @ApiResponse(responseCode = "404", description = "roleId không tồn tại")
     })
     public ResponseEntity<RoleResponse> updatePermissions(
