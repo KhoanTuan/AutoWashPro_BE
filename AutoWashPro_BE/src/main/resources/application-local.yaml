@@ -1,0 +1,7 @@
+# Local only — không commit (đã gitignore)
+
+app:
+  speedsms:
+    enabled: true
+    access-token: cTLZhTfeGMPoGwNAntrxqY_j63w-nZhX
+    sender: ""

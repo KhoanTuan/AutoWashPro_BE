@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="5bbf3191-b5c7-4b75-9997-68b49137d762" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/common/dto/MessageResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/common/dto/MessageResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/common/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/common/exception/GlobalExceptionHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/common/service/NotificationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/common/service/NotificationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/config/DatabaseSeeder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/config/DatabaseSeeder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/config/OpenApiConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/config/OpenApiConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/controller/CustomerAuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/controller/CustomerAuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/dto/CustomerForgotPasswordRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/dto/CustomerForgotPasswordRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/dto/CustomerResetPasswordRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/dto/CustomerResetPasswordRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/dto/ForgotPasswordResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/dto/ForgotPasswordResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/entity/Customer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/entity/Customer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/repository/CustomerRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/repository/CustomerRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/service/CustomerAuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/customer/service/CustomerAuthService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/StaffConstants.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/StaffConstants.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/controller/AdminStaffController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/controller/AdminStaffController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/controller/AuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/controller/RoleController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/controller/RoleController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/ChangePasswordRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/ChangePasswordRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/CreateStaffRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/CreateStaffRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/CreateStaffResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/CreateStaffResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/JwtResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/JwtResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/LoginRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/LoginRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/PermissionSummary.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/PermissionSummary.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/RoleResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/RoleResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/StaffResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/dto/StaffResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/entity/Permission.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/entity/Permission.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/entity/Staff.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/entity/Staff.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/repository/PermissionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/repository/PermissionRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/repository/StaffRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/repository/StaffRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/service/AuthService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/service/IdentityMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/service/IdentityMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/service/RoleService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/service/RoleService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/service/StaffService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/modules/identity/service/StaffService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/security/CustomUserDetailsService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/autowashpro/autowashpro_be/security/CustomUserDetailsService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yaml" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MavenImportPreferences">
+    <option name="generalSettings">
+      <MavenGeneralSettings>
+        <option name="mavenHomeTypeForPersistence" value="WRAPPER" />
+      </MavenGeneralSettings>
+    </option>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3F0SVPLaSbCUkfofe7CiuIVnciq" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Application.AutoWashProBeApplication.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;Spring Boot.AutoWashProBeApplication.executor&quot;: &quot;Run&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feature/identity&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/Semester_5/SWP391/AutoWashPro_BE&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Subversion&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration name="AutoWashProBeApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="ALTERNATIVE_JRE_PATH" value="26 (3)" />
+      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+      <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+      <module name="AutoWashPro_BE" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.autowashpro.autowashpro_be.AutoWashProBeApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-37e91769500f-intellij.indexing.shared.core-IU-261.25134.95" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-IU-261.25134.95" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration>C:\Users\ASUS\AppData\Roaming\Subversion</configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="5bbf3191-b5c7-4b75-9997-68b49137d762" name="Changes" comment="" />
+      <created>1781210517927</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1781210517927</updated>
+      <workItem from="1781210519916" duration="4232000" />
+      <workItem from="1781264031214" duration="1641000" />
+      <workItem from="1781293662828" duration="615000" />
+      <workItem from="1781559123577" duration="448000" />
+      <workItem from="1781559589152" duration="669000" />
+      <workItem from="1781560763146" duration="19595000" />
+      <workItem from="1781698265862" duration="5691000" />
+      <workItem from="1781720201382" duration="5696000" />
+      <workItem from="1781761674859" duration="3475000" />
+      <workItem from="1781801793086" duration="635000" />
+      <workItem from="1781811565511" duration="9452000" />
+      <workItem from="1781856974196" duration="3075000" />
+      <workItem from="1781861392038" duration="1255000" />
+      <workItem from="1781863139821" duration="5436000" />
+      <workItem from="1781967180211" duration="612000" />
+      <workItem from="1781991751080" duration="1003000" />
+      <workItem from="1781993420020" duration="4644000" />
+      <workItem from="1781999147470" duration="643000" />
+      <workItem from="1781999907909" duration="20058000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: AutoWashPro_BE
+  config:
+    import: optional:classpath:application-local.yaml
+  datasource:
+    url: jdbc:postgresql://localhost:5432/autowashpro
+    username: postgres
+    password: 0325847495@Abc
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  docker:
+    compose:
+      enabled: false
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: AutoWashProSecretKeyForJWT2026MustBeAtLeast256BitsLong!!
+    expiration-ms: 86400000
+  otp:
+    ttl-seconds: 120
+  speedsms:
+    enabled: false
+    access-token: ${SPEEDSMS_ACCESS_TOKEN:}
+    api-url: https://api.speedsms.vn/index.php/sms/send
+    sms-type: 2
+    sender: ${SPEEDSMS_SENDER:}
+  momo:
+    partner-code: MOMOBKUN20180810
+    access-key: klm0566hr7390ndU
+    secret-key: escon6Yaa4gR3xgB6wST6sy7v0s9gYMS
+    endpoint: https://test-payment.momo.vn/v2/gateway/api/create
+    ipn-url: ${MOMO_IPN_URL:http://localhost:8080/api/v1/financial/webhook/momo}
+    redirect-url: ${MOMO_REDIRECT_URL:http://localhost:3000/payment/result}
+    request-type: captureWallet
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: gemini-2.0-flash
+    endpoint: https://generativelanguage.googleapis.com/v1beta/models
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    doc-expansion: list
+    display-operation-id: true
+    filter: true
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    org.springframework.security: INFO
