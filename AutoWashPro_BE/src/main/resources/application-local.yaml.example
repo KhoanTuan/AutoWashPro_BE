@@ -1,0 +1,8 @@
+# Copy thành application-local.yaml (file đó đã gitignore)
+
+app:
+  speedsms:
+    enabled: true
+    access-token: your_speedsms_api_access_token
+    # Brandname đã đăng ký với SpeedSMS (để trống nếu chưa có)
+    sender: ""

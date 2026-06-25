@@ -1,0 +1,9 @@
+ .../autowashpro_be/config/SecurityConfig.java      |   1 [32m+[m
+ .../booking/controller/BookingController.java      |  50 [32m++++++++[m
+ .../booking/dto/CreateAppointmentRequest.java      |  49 [32m++++++++[m
+ .../booking/repository/BookingRepository.java      |   2 [32m+[m
+ .../modules/booking/service/BookingService.java    | 140 [32m++++++++++++++++++[m[31m---[m
+ .../controller/SlotAvailabilityController.java     |  48 [32m+++++++[m
+ .../capacity/dto/SlotAvailabilityResponse.java     |  34 [32m+++++[m
+ .../capacity/service/SlotAvailabilityService.java  |  66 [32m++++++++++[m
+ 8 files changed, 375 insertions(+), 15 deletions(-)
