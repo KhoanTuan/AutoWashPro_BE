@@ -16,6 +16,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     long countByBookingDateAndBookingType(LocalDate bookingDate, com.autowashpro.autowashpro_be.modules.booking.entity.BookingType bookingType);
 
+    long countBySlotSlotIdAndBookingDate(Integer slotId, LocalDate bookingDate);
+
     @Query("SELECT b FROM Booking b WHERE (:status IS NULL OR b.bookingStatus = :status) " +
            "AND (:date IS NULL OR b.bookingDate = :date) " +
            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(b.customer.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

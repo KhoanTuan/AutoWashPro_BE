@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 "/api/v1/customer/auth/register/resend-otp",
                                 "/api/v1/customer/auth/forgot-password",
                                 "/api/v1/customer/auth/reset-password",
+                                "/api/v1/capacity/slots/availability",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"

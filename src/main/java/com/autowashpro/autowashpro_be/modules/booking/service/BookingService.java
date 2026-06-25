@@ -9,6 +9,10 @@ import com.autowashpro.autowashpro_be.modules.booking.repository.*;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CarType;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Vehicle;
+import com.autowashpro.autowashpro_be.modules.booking.state.BookingStateTransitionValidator;
+import com.autowashpro.autowashpro_be.modules.capacity.service.SlotAvailabilityService;
+import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
+import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
 import com.autowashpro.autowashpro_be.modules.customer.service.CustomerAdminService;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
 import com.autowashpro.autowashpro_be.modules.identity.entity.StaffStatus;
@@ -42,6 +46,9 @@ public class BookingService {
     private final ServiceVariantRepository serviceVariantRepository;
     private final StaffRepository staffRepository;
     private final CustomerAdminService customerAdminService;
+    private final CustomerRepository customerRepository;
+    private final VehicleRepository vehicleRepository;
+    private final SlotAvailabilityService slotAvailabilityService;
     private final BookingMapper mapper;
     private final QueueService queueService;
     private final ChecklistService checklistService;
@@ -77,7 +84,7 @@ public class BookingService {
         return BookingSummaryStatsResponse.builder()
                 .todayTotal(bookingRepository.countByBookingDate(today))
                 .todayWalkIns(bookingRepository.countByBookingDateAndBookingType(today, BookingType.WALKIN))
-                .pendingPayment(bookingRepository.search(BookingStatus.PENDING_PAYMENT, today, null, PageRequest.of(0, 1)).getTotalElements())
+                .pendingPayment(bookingRepository.search(BookingStatus.PENDING, today, null, PageRequest.of(0, 1)).getTotalElements())
                 .inProgress(bookingRepository.search(BookingStatus.PROCESSING, today, null, PageRequest.of(0, 1)).getTotalElements())
                 .build();
     }
@@ -132,7 +139,7 @@ public class BookingService {
                 .slot(slot)
                 .bookingType(bookingType)
                 .bookingDate(LocalDate.parse(request.getBookingDate()))
-                .bookingStatus(BookingStatus.PENDING_PAYMENT)
+                .bookingStatus(BookingStatus.PENDING)
                 .paymentStatus(PaymentStatus.UNPAID)
                 .notes(request.getNotes())
                 .build();
@@ -149,12 +156,120 @@ public class BookingService {
     }
 
     @Transactional
+    public BookingResponse createAppointment(CreateAppointmentRequest request) {
+        UserPrincipal principal = requireAuthenticatedPrincipal();
+        LocalDate bookingDate = LocalDate.parse(request.getBookingDate());
+        slotAvailabilityService.ensureSlotAvailable(request.getSlotId(), bookingDate);
+
+        if (principal.getUserType() == UserPrincipal.UserType.CUSTOMER) {
+            return createAppointmentForCustomer(principal.getId(), request, bookingDate);
+        }
+        validateStaffWalkInRequest(request);
+        return createBooking(toStaffWalkInRequest(request));
+    }
+
+    private void validateStaffWalkInRequest(CreateAppointmentRequest request) {
+        if (request.getCustomerName() == null || request.getCustomerName().isBlank()) {
+            throw new BadRequestException("customerName is required for staff walk-in booking");
+        }
+        if (request.getPlate() == null || request.getPlate().isBlank()) {
+            throw new BadRequestException("plate is required for staff walk-in booking");
+        }
+    }
+
+    private BookingResponse createAppointmentForCustomer(Long customerId, CreateAppointmentRequest request, LocalDate bookingDate) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+
+        Vehicle vehicle = resolveCustomerVehicle(customer, request);
+        CarType carType = vehicle.getCarType();
+
+        Slot slot = slotRepository.findById(request.getSlotId())
+                .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
+        WashService service = washServiceRepository.findById(request.getServiceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
+        ServiceVariant variant = serviceVariantRepository.findByServiceServiceIdAndCarType(service.getServiceId(), carType)
+                .orElseThrow(() -> new BadRequestException("No price variant for car type " + carType));
+
+        BookingType bookingType = resolveBookingType(request.getBookingType(), BookingType.APP_BOOKING);
+
+        Booking booking = Booking.builder()
+                .bookingCode(generateBookingCode())
+                .customer(customer)
+                .vehicle(vehicle)
+                .slot(slot)
+                .bookingType(bookingType)
+                .bookingDate(bookingDate)
+                .bookingStatus(BookingStatus.PENDING)
+                .paymentStatus(PaymentStatus.UNPAID)
+                .notes(request.getNotes())
+                .build();
+
+        booking.getBookingItems().add(BookingItem.builder()
+                .booking(booking)
+                .variant(variant)
+                .actualPrice(variant.getCalculatedPrice())
+                .build());
+
+        bookingRepository.save(booking);
+        return mapper.toResponse(booking);
+    }
+
+    private Vehicle resolveCustomerVehicle(Customer customer, CreateAppointmentRequest request) {
+        if (request.getVehicleId() != null) {
+            Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found"));
+            if (!vehicle.getCustomer().getCustomerId().equals(customer.getCustomerId())) {
+                throw new BadRequestException("Vehicle does not belong to the authenticated customer");
+            }
+            return vehicle;
+        }
+        return vehicleRepository.findFirstByCustomerCustomerIdOrderByCreatedAtAsc(customer.getCustomerId())
+                .orElseThrow(() -> new BadRequestException("vehicleId is required when no default vehicle exists"));
+    }
+
+    private CreateBookingRequest toStaffWalkInRequest(CreateAppointmentRequest request) {
+        CreateBookingRequest staffRequest = new CreateBookingRequest();
+        staffRequest.setBookingType(request.getBookingType());
+        staffRequest.setCustomerId(request.getCustomerId());
+        staffRequest.setCustomerName(request.getCustomerName());
+        staffRequest.setPhone(request.getPhone());
+        staffRequest.setEmail(request.getEmail());
+        staffRequest.setPlate(request.getPlate());
+        staffRequest.setVehicleType(request.getVehicleType());
+        staffRequest.setServiceId(request.getServiceId());
+        staffRequest.setSlotId(request.getSlotId());
+        staffRequest.setBookingDate(request.getBookingDate());
+        staffRequest.setNotes(request.getNotes());
+        return staffRequest;
+    }
+
+    private BookingType resolveBookingType(String rawType, BookingType defaultType) {
+        if (rawType == null || rawType.isBlank()) {
+            return defaultType;
+        }
+        return "walk-in".equalsIgnoreCase(rawType) || "walkin".equalsIgnoreCase(rawType)
+                ? BookingType.WALKIN
+                : BookingType.APP_BOOKING;
+    }
+
+    private UserPrincipal requireAuthenticatedPrincipal() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof UserPrincipal principal)) {
+            throw new BadRequestException("Authentication required");
+        }
+        return principal;
+    }
+
+    @Transactional
     public BookingResponse markPaid(Long id) {
         Booking booking = findBooking(id);
         if (booking.getPaymentStatus() == PaymentStatus.PAID) {
             throw new BadRequestException("Booking already paid");
         }
+        BookingStateTransitionValidator.validateStateTransition(booking.getBookingStatus(), BookingStatus.PAID);
         booking.setPaymentStatus(PaymentStatus.PAID);
+        booking.setBookingStatus(BookingStatus.PAID);
         booking.setCashier(getCurrentStaff());
         bookingRepository.save(booking);
         queueService.checkIn(id);
@@ -182,6 +297,8 @@ public class BookingService {
                 .status(TaskStatus.NOT_STARTED)
                 .build();
         booking.getTaskChecklists().add(task);
+        BookingStateTransitionValidator.validateStateTransition(booking.getBookingStatus(), BookingStatus.ASSIGNED);
+        booking.setBookingStatus(BookingStatus.ASSIGNED);
         bookingRepository.save(booking);
         checklistService.initializeForBooking(booking, technician);
         return hydrateAndMap(booking);
@@ -194,10 +311,8 @@ public class BookingService {
         if (booking.getTaskChecklists().isEmpty()) {
             throw new BadRequestException("Assign technician before accepting");
         }
-        if (booking.getBookingStatus() != BookingStatus.PENDING_PAYMENT) {
-            throw new BadRequestException("Booking cannot be accepted in current status");
-        }
-        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        BookingStateTransitionValidator.validateStateTransition(booking.getBookingStatus(), BookingStatus.ACCEPTED);
+        booking.setBookingStatus(BookingStatus.ACCEPTED);
         bookingRepository.save(booking);
         return hydrateAndMap(booking);
     }
@@ -206,12 +321,9 @@ public class BookingService {
     public BookingResponse startProcessing(Long id) {
         Booking booking = findBooking(id);
         ensurePaid(booking);
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
-            throw new BadRequestException("Booking must be confirmed before processing");
-        }
-
         TaskChecklist task = booking.getTaskChecklists().stream().findFirst()
                 .orElseThrow(() -> new BadRequestException("No technician assigned"));
+        BookingStateTransitionValidator.validateStateTransition(booking.getBookingStatus(), BookingStatus.PROCESSING);
         task.setStatus(TaskStatus.PROCESSING);
         task.setStartTime(LocalDateTime.now());
 
@@ -228,9 +340,7 @@ public class BookingService {
     public BookingResponse complete(Long id) {
         Booking booking = findBooking(id);
         ensurePaid(booking);
-        if (booking.getBookingStatus() != BookingStatus.PROCESSING) {
-            throw new BadRequestException("Booking must be processing before complete");
-        }
+        BookingStateTransitionValidator.validateStateTransition(booking.getBookingStatus(), BookingStatus.COMPLETED);
 
         TaskChecklist task = booking.getTaskChecklists().stream().findFirst()
                 .orElseThrow(() -> new BadRequestException("No technician assigned"));
@@ -293,8 +403,8 @@ public class BookingService {
             return null;
         }
         String normalized = status.trim().toUpperCase().replace(' ', '_');
-        if ("PENDING".equals(normalized)) {
-            return BookingStatus.PENDING_PAYMENT;
+        if ("PENDING".equals(normalized) || "PENDING_PAYMENT".equals(normalized)) {
+            return BookingStatus.PENDING;
         }
         return BookingStatus.valueOf(normalized);
     }
