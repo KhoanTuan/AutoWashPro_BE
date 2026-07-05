@@ -28,7 +28,7 @@ public class SecurityTokenService {
     public SecurityToken createToken(Customer customer, SecurityTokenType type) {
         securityTokenRepository.invalidateActiveTokens(customer, type);
 
-        int ttlMinutes = type == SecurityTokenType.EMAIL_VERIFICATION
+        int ttlMinutes = (type == SecurityTokenType.EMAIL_VERIFICATION || type == SecurityTokenType.ACCOUNT_CLAIM)
                 ? securityTokenProperties.getEmailVerificationMinutes()
                 : securityTokenProperties.getPasswordResetMinutes();
 
@@ -60,6 +60,20 @@ public class SecurityTokenService {
         return securityTokenRepository.save(token);
     }
 
+    @Transactional
+    public SecurityToken createRegistrationToken(String payloadStr, SecurityTokenType type) {
+        int ttlMinutes = securityTokenProperties.getEmailVerificationMinutes();
+
+        SecurityToken token = SecurityToken.builder()
+                .tokenType(type)
+                .token(generateSecureToken())
+                .payload(payloadStr)
+                .expiresAt(Instant.now().plusSeconds(ttlMinutes * 60L))
+                .build();
+
+        return securityTokenRepository.save(token);
+    }
+
     public SecurityToken requireValidToken(String rawToken, SecurityTokenType expectedType) {
         SecurityToken token = securityTokenRepository.findByToken(rawToken)
                 .orElseThrow(() -> new BadRequestException("Invalid or expired security token"));
@@ -67,7 +81,10 @@ public class SecurityTokenService {
         if (token.getTokenType() != expectedType) {
             throw new BadRequestException("Invalid token type for this action");
         }
-        if (expectedType == SecurityTokenType.EMAIL_VERIFICATION && token.getCustomer() == null) {
+        if (expectedType == SecurityTokenType.EMAIL_VERIFICATION && token.getCustomer() == null && token.getPayload() == null) {
+            throw new BadRequestException("Invalid or expired security token");
+        }
+        if (expectedType == SecurityTokenType.ACCOUNT_CLAIM && token.getCustomer() == null) {
             throw new BadRequestException("Invalid or expired security token");
         }
         if (expectedType == SecurityTokenType.STAFF_ACCOUNT_ACTIVATION && token.getStaff() == null) {

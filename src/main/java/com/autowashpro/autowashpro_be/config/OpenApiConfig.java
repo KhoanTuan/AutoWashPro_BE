@@ -29,7 +29,7 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("AutoWash Pro — API Reference (Quoc2 + Email)")
+                        .title("NovaWash — API Reference (Quoc2 + Email)")
                         .version("1.2.0")
                         .description("""
                                 Tài liệu API **đang tích hợp** cho **Quoc2 FE** + **Customer Email Auth**.
@@ -50,8 +50,8 @@ public class OpenApiConfig {
                                 | 03 | Admin Staff (Quoc2) |
                                 | 04 | Admin Customer — list, create, update |
                                 | 05 | Admin Booking Flow 1 (Quoc2) |
-                                | 06 | Roles — CRUD + custom role (`MANAGE_ROLE`) |
-                                | 07 | RBAC Matrix — gán permission (`CONFIG_RBAC_MATRIX`) |
+                                | 06 | Roles — CRUD + custom role (chỉ ADMIN & MANAGER) |
+                                | 07 | RBAC Matrix — gán permission (chỉ ADMIN & MANAGER) |
 
                                 ---
 
@@ -67,7 +67,7 @@ public class OpenApiConfig {
                                 | Admin | `admin` | `Admin@123` |
                                 | Customer (SĐT) | `0902000001` | `Customer@123` |
                                 """)
-                        .contact(new Contact().name("AutoWash Pro Team")))
+                        .contact(new Contact().name("NovaWash Team")))
                 .servers(List.of(
                         new Server().url("http://localhost:8080").description("Local development")
                 ))
@@ -80,12 +80,10 @@ public class OpenApiConfig {
                                 "CRUD nhân sự — `/admin/staff`. Permission: `READ_STAFF`, `CREATE_UPDATE_STAFF`, `DELETE_STAFF`, `ASSIGN_ROLE`."),
                         tag(TAG_04_ADMIN_CUSTOMER,
                                 "CRUD khách hàng — `/admin/customers`. Permission: `VIEW_CUSTOMER_PROFILE`, `MANAGE_CUSTOMER_STATUS`."),
-                        tag(TAG_05_ADMIN_BOOKING,
-                                "Flow 1 booking — `/admin/bookings` + Quick Booking. Catalog → CRUD → Pay → Assign → Accept → Start → Complete."),
                         tag(TAG_06_ROLES,
-                                "Quản lý Role — CRUD custom role. `MANAGE_ROLE`. System roles không xóa; `ROLE_ADMIN` bảo vệ tuyệt đối."),
+                                "Quản lý Role — CRUD custom role. Chỉ ADMIN & MANAGER. System roles không xóa; `ROLE_ADMIN` bảo vệ tuyệt đối."),
                         tag(TAG_07_PERMISSION_MATRIX,
-                                "Ma trận RBAC — GET /rbac/matrix, gán permission. CONFIG_RBAC_MATRIX. ROLE_ADMIN không sửa permission.")
+                                "Ma trận RBAC — GET /rbac/matrix, gán permission. Chỉ ADMIN & MANAGER. ROLE_ADMIN không sửa permission.")
                 ))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()

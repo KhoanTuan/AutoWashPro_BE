@@ -113,16 +113,6 @@ public class AdminStaffController {
         return ResponseEntity.ok(staffService.updateStatus(id, request));
     }
 
-    @PatchMapping("/{id}/work-status")
-    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
-    @Operation(operationId = "03-07-update-work-status", summary = "[UPDATE] Trạng thái ca (IDLE / BUSY / ON_BREAK / OFF)")
-    public ResponseEntity<StaffResponse> updateWorkStatus(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateStaffWorkStatusRequest request
-    ) {
-        return ResponseEntity.ok(staffService.updateWorkStatus(id, request));
-    }
-
     @PutMapping("/{staffId}/roles")
     @PreAuthorize("hasAuthority('ASSIGN_ROLE')")
     @Operation(

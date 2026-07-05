@@ -1,7 +1,6 @@
 package com.autowashpro.autowashpro_be.modules.identity.dto;
 
 import com.autowashpro.autowashpro_be.modules.identity.entity.StaffStatus;
-import com.autowashpro.autowashpro_be.modules.identity.entity.StaffWorkStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
@@ -35,23 +34,8 @@ public class StaffResponse {
     @Schema(description = "Trạng thái tài khoản PENDING_ACTIVATION | ACTIVE | INACTIVE", example = "ACTIVE")
     private StaffStatus status;
 
-    @Schema(description = "Trạng thái ca: IDLE | BUSY | ON_BREAK | OFF", example = "IDLE")
-    private StaffWorkStatus workStatus;
-
-    @Schema(description = "Nhãn hiển thị UI: On-duty | In-break | Off-duty", example = "On-duty")
-    private String workStatusLabel;
-
     @Schema(description = "Tên vai trò hiển thị (job title)", example = "Lead Technician")
     private String roleLabel;
-
-    @Schema(description = "Tổng số job đã hoàn thành", example = "142")
-    private Integer totalJobs;
-
-    @Schema(description = "Hiệu suất KPI 0–100 (read-only)", example = "98.0")
-    private Double efficiency;
-
-    @Schema(description = "Điểm rating 0–5 (read-only)", example = "4.9")
-    private Double rating;
 
     @Schema(description = "Các vai trò đang được gán")
     private List<RoleSummary> roles;

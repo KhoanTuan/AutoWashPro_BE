@@ -29,9 +29,8 @@ public class Vehicle extends BaseEntity {
     @Column(name = "license_plate", nullable = false, unique = true, length = 20)
     private String licensePlate;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "car_type", nullable = false, length = 20)
-    private CarType carType;
+    @Column(name = "model", length = 100)
+    private String model;
 
     @Builder.Default
     @Column(name = "is_deleted", nullable = false)

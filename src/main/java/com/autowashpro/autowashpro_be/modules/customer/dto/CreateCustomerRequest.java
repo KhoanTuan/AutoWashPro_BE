@@ -29,9 +29,8 @@ public class CreateCustomerRequest {
     @Schema(description = "Biển số xe chính", example = "51A-12345")
     private String licensePlate;
 
-    @Pattern(regexp = "SEDAN|SUV|TRUCK", message = "carType must be SEDAN, SUV or TRUCK")
-    @Schema(example = "SEDAN")
-    private String carType;
+    @Schema(example = "Honda SH 150i", description = "Dòng xe máy")
+    private String model;
 
     @Pattern(regexp = "ACTIVE|INACTIVE", message = "status must be ACTIVE or INACTIVE")
     private String status;

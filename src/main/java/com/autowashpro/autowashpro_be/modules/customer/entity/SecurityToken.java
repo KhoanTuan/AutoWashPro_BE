@@ -39,6 +39,9 @@ public class SecurityToken {
     @Column(nullable = false, unique = true, length = 128)
     private String token;
 
+    @Column(name = "payload", columnDefinition = "TEXT")
+    private String payload;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 

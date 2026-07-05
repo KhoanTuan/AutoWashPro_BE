@@ -2,14 +2,12 @@ package com.autowashpro.autowashpro_be.modules.identity.service;
 
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
-import com.autowashpro.autowashpro_be.modules.identity.entity.StaffWorkStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * Chặn xóa staff khi còn gán booking/task (Phase B).
- * Nếu bảng {@code task_checklist} chưa có (chưa merge module booking), chỉ kiểm tra {@code work_status = BUSY}.
+ * Chặn xóa staff khi còn gán công việc/job.
  */
 @Service
 @RequiredArgsConstructor
@@ -18,10 +16,6 @@ public class StaffDeletionGuard {
     private final JdbcTemplate jdbcTemplate;
 
     public void ensureSafeToDelete(Staff staff, boolean hardDelete) {
-        if (staff.getWorkStatus() == StaffWorkStatus.BUSY) {
-            throw new BadRequestException(
-                    "Cannot delete staff while work status is BUSY (active job in progress)");
-        }
 
         if (!taskChecklistTableExists()) {
             return;

@@ -16,7 +16,6 @@ import com.autowashpro.autowashpro_be.modules.identity.dto.*;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Role;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
 import com.autowashpro.autowashpro_be.modules.identity.entity.StaffStatus;
-import com.autowashpro.autowashpro_be.modules.identity.entity.StaffWorkStatus;
 import com.autowashpro.autowashpro_be.modules.identity.repository.RoleRepository;
 import com.autowashpro.autowashpro_be.modules.identity.repository.StaffRepository;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
@@ -93,40 +92,12 @@ public class StaffService {
     @Transactional(readOnly = true)
     public StaffSummaryStatsResponse getSummaryStats() {
         List<Staff> activeStaff = staffRepository.findByStatus(StaffStatus.ACTIVE);
-        if (activeStaff.isEmpty()) {
-            return StaffSummaryStatsResponse.builder()
-                    .totalActiveStaff(0)
-                    .avgEfficiency(0)
-                    .teamScore(0)
-                    .onBreakNow(0)
-                    .offDutyNow(0)
-                    .build();
-        }
-
-        double avgEfficiency = activeStaff.stream()
-                .mapToDouble(s -> s.getPerformanceKpi() != null ? s.getPerformanceKpi() : 0)
-                .average()
-                .orElse(0);
-
-        double teamScore = activeStaff.stream()
-                .mapToDouble(s -> s.getServiceRating() != null ? s.getServiceRating() : 0)
-                .average()
-                .orElse(0);
-
-        long onBreak = activeStaff.stream()
-                .filter(s -> s.getWorkStatus() == StaffWorkStatus.ON_BREAK)
-                .count();
-
-        long offDuty = activeStaff.stream()
-                .filter(s -> s.getWorkStatus() == StaffWorkStatus.OFF)
-                .count();
-
         return StaffSummaryStatsResponse.builder()
                 .totalActiveStaff(activeStaff.size())
-                .avgEfficiency(Math.round(avgEfficiency * 10.0) / 10.0)
-                .teamScore(Math.round(teamScore * 100.0) / 100.0)
-                .onBreakNow(onBreak)
-                .offDutyNow(offDuty)
+                .avgEfficiency(100.0)
+                .teamScore(5.0)
+                .onBreakNow(0)
+                .offDutyNow(0)
                 .build();
     }
 
@@ -162,13 +133,6 @@ public class StaffService {
     }
 
     @Transactional
-    public StaffResponse updateWorkStatus(Long id, UpdateStaffWorkStatusRequest request) {
-        Staff staff = requireActiveStaff(id);
-        staff.setWorkStatus(request.getWorkStatus());
-        return mapper.toStaffResponse(staffRepository.save(staff));
-    }
-
-    @Transactional
     public CreateStaffResponse createStaff(CreateStaffRequest request) {
         String username = request.getUsername().trim();
         String email = MailService.normalizeEmail(request.getEmail());
@@ -186,10 +150,6 @@ public class StaffService {
                 .fullName(request.getFullName().trim())
                 .requirePasswordChange(false)
                 .status(StaffStatus.PENDING_ACTIVATION)
-                .workStatus(StaffWorkStatus.IDLE)
-                .performanceKpi(0.0)
-                .totalJobsCompleted(0)
-                .serviceRating(5.0)
                 .roles(roles)
                 .build();
 
@@ -430,7 +390,6 @@ public class StaffService {
                 staff.setPhoneNumber(truncateWithSuffix(staff.getPhoneNumber(), suffix, 15));
             }
             staff.setStatus(StaffStatus.INACTIVE);
-            staff.setWorkStatus(StaffWorkStatus.OFF);
             staff.setDeletedAt(LocalDateTime.now());
             staffRepository.save(staff);
             adminAuditLogService.logStaffAction(

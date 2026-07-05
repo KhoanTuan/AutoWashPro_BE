@@ -7,7 +7,7 @@ app:
   gmail:
     username: your.email@gmail.com
     app-password: YOUR_GMAIL_APP_PASSWORD
-    from-name: AutoWash Pro
+    from-name: NovaWash
   speedsms:
     enabled: false
     access-token: your_speedsms_api_access_token

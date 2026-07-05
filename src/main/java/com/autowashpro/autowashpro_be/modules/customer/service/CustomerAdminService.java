@@ -3,24 +3,30 @@ package com.autowashpro.autowashpro_be.modules.customer.service;
 import com.autowashpro.autowashpro_be.common.dto.PageResponse;
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
 import com.autowashpro.autowashpro_be.common.exception.ResourceNotFoundException;
+import com.autowashpro.autowashpro_be.common.service.MailService;
 import com.autowashpro.autowashpro_be.modules.customer.dto.*;
 import com.autowashpro.autowashpro_be.modules.customer.entity.*;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository;
 import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CustomerAdminService {
 
     private static final String DEFAULT_PASSWORD = "Customer@123";
@@ -30,6 +36,8 @@ public class CustomerAdminService {
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final CustomerMapper mapper;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityTokenService securityTokenService;
+    private final MailService mailService;
 
     @Transactional(readOnly = true)
     public PageResponse<CustomerResponse> listCustomers(String status, String keyword, int page, int size) {
@@ -124,7 +132,7 @@ public class CustomerAdminService {
         Vehicle vehicle = Vehicle.builder()
                 .customer(customer)
                 .licensePlate(plate)
-                .carType(mapper.parseCarType(request.getCarType()))
+                .model(request.getModel() != null ? request.getModel() : "Xe máy")
                 .build();
         vehicleRepository.save(vehicle);
 
@@ -160,7 +168,7 @@ public class CustomerAdminService {
                 throw new BadRequestException("License plate already exists");
             }
             primary.setLicensePlate(plate);
-            primary.setCarType(mapper.parseCarType(request.getCarType()));
+            if (request.getModel() != null) primary.setModel(request.getModel());
             vehicleRepository.save(primary);
         } else {
             if (vehicleRepository.existsByLicensePlateIgnoreCase(plate)) {
@@ -169,7 +177,7 @@ public class CustomerAdminService {
             vehicleRepository.save(Vehicle.builder()
                     .customer(customer)
                     .licensePlate(plate)
-                    .carType(mapper.parseCarType(request.getCarType()))
+                    .model(request.getModel() != null ? request.getModel() : "Xe máy")
                     .build());
         }
 
@@ -185,64 +193,175 @@ public class CustomerAdminService {
         return mapper.toResponse(customer);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Optional<Vehicle> findVehicleByPlate(String licensePlate) {
+        if (licensePlate == null || licensePlate.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return vehicleRepository.findByLicensePlateIgnoreCase(normalizePlate(licensePlate));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<Customer> findByPhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return customerRepository.findByPhoneNumber(normalizePhone(phone));
+    }
+
+    @Transactional(readOnly = true)
+    public Vehicle findPrimaryVehicle(Long customerId) {
+        return vehicleRepository.findFirstByCustomerCustomerIdOrderByCreatedAtAsc(customerId).orElse(null);
+    }
+
+    /**
+     * Resolve khách cho booking Nhánh B/C (admin/manager đặt cho khách).
+     * Thứ tự ưu tiên: customerId → biển số (plate-first) → SĐT → tạo mới.
+     * Ràng buộc: khách INACTIVE bị chặn; khách mới bắt buộc có SĐT; không tạo trùng khách.
+     * Khách mới được tạo ở trạng thái PENDING_ACTIVATION + mật khẩu không dùng được;
+     * nếu có email → lên lịch gửi link claim (đặt mật khẩu + kích hoạt) sau khi commit.
+     * Lưu ý: hàm này CHỈ resolve khách — việc gắn/ tạo xe do {@link #resolveVehicle} đảm nhiệm.
+     */
     @Transactional
-    public Customer resolveOrCreateForBooking(Long customerId, String fullName, String phone, String email,
-                                              String licensePlate, CarType carType) {
+    public ResolvedCustomer resolveOrCreateForBooking(Long customerId, String fullName, String phone, String email,
+                                                      String licensePlate, String model) {
+        String plate = (licensePlate != null && !licensePlate.isBlank()) ? normalizePlate(licensePlate) : null;
+        String normalizedPhone = (phone != null && !phone.isBlank()) ? normalizePhone(phone) : null;
+
+        // 1) Chọn khách rõ ràng theo ID
         if (customerId != null) {
             Customer existing = findCustomer(customerId);
-            upsertVehicle(existing, licensePlate, carType);
-            return existing;
+            ensureBookable(existing);
+            return new ResolvedCustomer(existing, false, false);
         }
 
-        String normalizedPhone = phone != null ? normalizePhone(phone) : null;
-        if (normalizedPhone != null) {
-            Customer byPhone = customerRepository.findByPhoneNumber(normalizedPhone).orElse(null);
-            if (byPhone != null) {
-                if (fullName != null && !fullName.isBlank()) {
-                    byPhone.setFullName(fullName.trim());
-                }
-                if (email != null && !email.isBlank()) {
-                    byPhone.setEmail(blankToNull(email));
-                }
-                upsertVehicle(byPhone, licensePlate, carType);
-                customerRepository.save(byPhone);
-                return byPhone;
+        // 2) Plate-first: biển số đã tồn tại → dùng đúng chủ xe (tránh tạo trùng khách)
+        if (plate != null) {
+            Customer owner = vehicleRepository.findByLicensePlateIgnoreCase(plate)
+                    .map(Vehicle::getCustomer)
+                    .orElse(null);
+            if (owner != null) {
+                ensureBookable(owner);
+                applyOptionalInfo(owner, fullName, email);
+                return new ResolvedCustomer(customerRepository.save(owner), false, false);
             }
         }
 
-        CreateCustomerRequest req = new CreateCustomerRequest();
-        req.setFullName(fullName != null && !fullName.isBlank() ? fullName : "Walk-in Guest");
-        req.setPhoneNumber(normalizedPhone != null ? normalizedPhone : generateWalkInPhone());
-        req.setEmail(email);
-        req.setLicensePlate(licensePlate);
-        req.setCarType(carType.name());
-        return customerRepository.findById(createCustomer(req).getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found after create"));
+        // 3) Khách mới bắt buộc có SĐT (để chạy loyalty/retention)
+        if (normalizedPhone == null) {
+            throw new BadRequestException("Phone number is required to book for a new walk-in customer");
+        }
+
+        // 4) Tra theo SĐT — đã có thì dùng lại
+        Customer byPhone = customerRepository.findByPhoneNumber(normalizedPhone).orElse(null);
+        if (byPhone != null) {
+            ensureBookable(byPhone);
+            applyOptionalInfo(byPhone, fullName, email);
+            return new ResolvedCustomer(customerRepository.save(byPhone), false, false);
+        }
+
+        // 5) Tạo khách mới (SĐT chưa tồn tại, biển số chưa tồn tại)
+        String cleanEmail = blankToNull(email);
+        if (cleanEmail != null && customerRepository.existsByEmail(cleanEmail)) {
+            throw new BadRequestException("Email already exists");
+        }
+
+        LoyaltyTier tier = loyaltyTierRepository.findByTierName("REGULAR")
+                .orElseThrow(() -> new ResourceNotFoundException("Default loyalty tier not found"));
+
+        Customer customer = Customer.builder()
+                .fullName(fullName != null && !fullName.isBlank() ? fullName.trim() : "Walk-in Guest")
+                .phoneNumber(normalizedPhone)
+                .email(cleanEmail)
+                .authProvider(cleanEmail != null ? CustomerAuthProvider.EMAIL : CustomerAuthProvider.PHONE)
+                .status(CustomerStatus.PENDING_ACTIVATION)
+                .passwordHash(unusablePassword())
+                .tier(tier)
+                .build();
+        customerRepository.save(customer);
+
+        boolean inviteSent = scheduleClaimInvite(customer);
+        return new ResolvedCustomer(customer, true, inviteSent);
+    }
+
+    private void ensureBookable(Customer customer) {
+        if (customer.getStatus() == CustomerStatus.INACTIVE) {
+            throw new BadRequestException(
+                    "Customer is INACTIVE and cannot book. Reactivate the account first.");
+        }
+    }
+
+    private void applyOptionalInfo(Customer customer, String fullName, String email) {
+        if (fullName != null && !fullName.isBlank()) {
+            customer.setFullName(fullName.trim());
+        }
+        // Chỉ điền email khi hồ sơ chưa có và email chưa bị khách khác dùng (tránh đụng unique).
+        String cleanEmail = blankToNull(email);
+        if (cleanEmail != null
+                && (customer.getEmail() == null || customer.getEmail().isBlank())
+                && !customerRepository.existsByEmail(cleanEmail)) {
+            customer.setEmail(cleanEmail);
+        }
+    }
+
+    /**
+     * Tạo token claim + lên lịch gửi email kích hoạt sau khi transaction commit
+     * (mail fail không làm rollback booking). Trả về true nếu đã lên lịch gửi.
+     */
+    private boolean scheduleClaimInvite(Customer customer) {
+        if (customer.getEmail() == null || customer.getEmail().isBlank()) {
+            return false;
+        }
+        SecurityToken token = securityTokenService.createToken(customer, SecurityTokenType.ACCOUNT_CLAIM);
+        final String email = customer.getEmail();
+        final String name = customer.getFullName();
+        final String tokenValue = token.getToken();
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sendClaimInvite(email, name, tokenValue);
+                }
+            });
+        } else {
+            sendClaimInvite(email, name, tokenValue);
+        }
+        return true;
+    }
+
+    private void sendClaimInvite(String email, String name, String tokenValue) {
+        try {
+            MailService.SendResult result = mailService.sendAccountClaimEmail(email, name, tokenValue);
+            log.info("[Booking/Claim] invite to {} | mode={} | success={}",
+                    email, result.mode(), result.success());
+        } catch (Exception ex) {
+            log.error("[Booking/Claim] failed to send invite to {}: {}", email, ex.getMessage(), ex);
+        }
+    }
+
+    private String unusablePassword() {
+        return passwordEncoder.encode("!" + UUID.randomUUID());
     }
 
     @Transactional
-    public Vehicle resolveVehicle(Customer customer, String licensePlate, CarType carType) {
+    public Vehicle resolveVehicle(Customer customer, String licensePlate, String model) {
         String plate = normalizePlate(licensePlate);
         Vehicle vehicle = vehicleRepository.findByLicensePlateIgnoreCase(plate).orElse(null);
         if (vehicle != null) {
             if (!vehicle.getCustomer().getCustomerId().equals(customer.getCustomerId())) {
                 throw new BadRequestException("License plate belongs to another customer");
             }
-            vehicle.setCarType(carType);
+            if (model != null && !model.isBlank()) {
+                vehicle.setModel(model);
+            }
             return vehicleRepository.save(vehicle);
         }
         return vehicleRepository.save(Vehicle.builder()
                 .customer(customer)
                 .licensePlate(plate)
-                .carType(carType)
+                .model(model != null ? model : "Xe máy")
                 .build());
-    }
-
-    private void upsertVehicle(Customer customer, String licensePlate, CarType carType) {
-        if (licensePlate == null || licensePlate.isBlank()) {
-            return;
-        }
-        resolveVehicle(customer, licensePlate, carType);
     }
 
     private Customer findCustomer(Long id) {
@@ -267,9 +386,5 @@ public class CustomerAdminService {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private String generateWalkInPhone() {
-        return "W" + System.currentTimeMillis() % 1_000_000_000_000L;
     }
 }

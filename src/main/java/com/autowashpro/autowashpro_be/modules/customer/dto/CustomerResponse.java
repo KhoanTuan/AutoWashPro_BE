@@ -16,7 +16,7 @@ public class CustomerResponse {
     private String phoneNumber;
     private String email;
     private String licensePlate;
-    private String carType;
+    private String model;
     private String status;
     private String statusLabel;
     private String tierName;

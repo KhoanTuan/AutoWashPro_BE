@@ -24,6 +24,7 @@ import static com.autowashpro.autowashpro_be.config.OpenApiConfig.*;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
+@PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
 public class RoleController {
 
     private final RoleService roleService;
@@ -31,7 +32,6 @@ public class RoleController {
     // ── Tag 06: Roles CRUD ────────────────────────────────────────────
 
     @GetMapping("/roles")
-    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX') or hasAuthority('ASSIGN_ROLE') or hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
     @Operation(
             operationId = "06-01-list-roles",
@@ -43,7 +43,6 @@ public class RoleController {
     }
 
     @GetMapping("/roles/{roleId}")
-    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX') or hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
     @Operation(operationId = "06-02-detail-role", summary = "[READ] Chi tiết Role kèm permissions")
     public ResponseEntity<RoleResponse> getRoleById(@PathVariable Integer roleId) {
@@ -51,7 +50,6 @@ public class RoleController {
     }
 
     @PostMapping("/roles")
-    @PreAuthorize("hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
     @Operation(
             operationId = "06-03-create-role",
@@ -70,7 +68,6 @@ public class RoleController {
     }
 
     @PutMapping("/roles/{roleId}")
-    @PreAuthorize("hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
     @Operation(
             operationId = "06-04-update-role",
@@ -85,7 +82,6 @@ public class RoleController {
     }
 
     @DeleteMapping("/roles/{roleId}")
-    @PreAuthorize("hasAuthority('MANAGE_ROLE')")
     @Tag(name = TAG_06_ROLES)
     @Operation(
             operationId = "06-05-delete-role",
@@ -107,7 +103,6 @@ public class RoleController {
     // ── Tag 07: Permission Matrix ───────────────────────────────────
 
     @GetMapping("/rbac/matrix")
-    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX')")
     @Tag(name = TAG_07_PERMISSION_MATRIX)
     @Operation(
             operationId = "07-00-rbac-matrix",
@@ -126,7 +121,6 @@ public class RoleController {
     }
 
     @GetMapping("/permissions")
-    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX')")
     @Tag(name = TAG_07_PERMISSION_MATRIX)
     @Operation(
             operationId = "07-01-list-permissions",
@@ -141,7 +135,6 @@ public class RoleController {
     }
 
     @PutMapping("/roles/{roleId}/permissions")
-    @PreAuthorize("hasAuthority('CONFIG_RBAC_MATRIX')")
     @Tag(name = TAG_07_PERMISSION_MATRIX)
     @Operation(
             operationId = "07-02-update-role-permissions",

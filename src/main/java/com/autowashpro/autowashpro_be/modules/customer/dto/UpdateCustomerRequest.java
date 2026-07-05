@@ -26,9 +26,8 @@ public class UpdateCustomerRequest {
     @Size(max = 20)
     private String licensePlate;
 
-    @Pattern(regexp = "SEDAN|SUV|TRUCK")
-    @Schema(example = "SEDAN")
-    private String carType;
+    @Schema(example = "Honda SH 150i")
+    private String model;
 
     @Pattern(regexp = "ACTIVE|INACTIVE")
     private String status;

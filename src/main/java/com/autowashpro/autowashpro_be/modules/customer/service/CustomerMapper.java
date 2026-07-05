@@ -2,7 +2,6 @@ package com.autowashpro.autowashpro_be.modules.customer.service;
 
 import com.autowashpro.autowashpro_be.modules.customer.dto.CustomerOptionResponse;
 import com.autowashpro.autowashpro_be.modules.customer.dto.CustomerResponse;
-import com.autowashpro.autowashpro_be.modules.customer.entity.CarType;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Vehicle;
@@ -26,7 +25,7 @@ public class CustomerMapper {
                 .phoneNumber(customer.getPhoneNumber())
                 .email(customer.getEmail())
                 .licensePlate(primary != null ? primary.getLicensePlate() : null)
-                .carType(primary != null ? primary.getCarType().name() : null)
+                .model(primary != null ? primary.getModel() : null)
                 .status(customer.getStatus().name())
                 .statusLabel(statusLabel(customer.getStatus()))
                 .tierName(customer.getTier() != null ? customer.getTier().getTierName() : null)
@@ -57,12 +56,5 @@ public class CustomerMapper {
             case PENDING_ACTIVATION -> "Pending";
             default -> "Active";
         };
-    }
-
-    public CarType parseCarType(String carType) {
-        if (carType == null || carType.isBlank()) {
-            return CarType.SEDAN;
-        }
-        return CarType.valueOf(carType.toUpperCase());
     }
 }

@@ -13,5 +13,5 @@ public class GmailMailProperties {
 
     private String username = "";
     private String appPassword = "";
-    private String fromName = "AutoWash Pro";
+    private String fromName = "NovaWash";
 }

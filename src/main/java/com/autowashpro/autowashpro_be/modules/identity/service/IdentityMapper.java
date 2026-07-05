@@ -5,7 +5,6 @@ import com.autowashpro.autowashpro_be.modules.identity.dto.*;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Permission;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Role;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
-import com.autowashpro.autowashpro_be.modules.identity.entity.StaffWorkStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -31,28 +30,12 @@ public class IdentityMapper {
                 .phoneNumber(staff.getPhoneNumber())
                 .requirePasswordChange(staff.getRequirePasswordChange())
                 .status(staff.getStatus())
-                .workStatus(staff.getWorkStatus())
-                .workStatusLabel(toWorkStatusLabel(staff.getWorkStatus()))
                 .roleLabel(resolveRoleLabel(staff))
-                .totalJobs(staff.getTotalJobsCompleted())
-                .efficiency(staff.getPerformanceKpi())
-                .rating(staff.getServiceRating())
                 .roles(roles)
                 .createdAt(staff.getCreatedAt())
                 .updatedAt(staff.getUpdatedAt())
                 .deletedAt(staff.getDeletedAt())
                 .build();
-    }
-
-    public static String toWorkStatusLabel(StaffWorkStatus workStatus) {
-        if (workStatus == null) {
-            return "On-duty";
-        }
-        return switch (workStatus) {
-            case ON_BREAK -> "In-break";
-            case OFF -> "Off-duty";
-            case IDLE, BUSY -> "On-duty";
-        };
     }
 
     private static String resolveRoleLabel(Staff staff) {

@@ -4,7 +4,7 @@ spring:
   config:
     import: optional:classpath:application-local.yaml
   datasource:
-    url: jdbc:postgresql://localhost:5432/autowashpro
+    url: jdbc:postgresql://localhost:5432/novawash
     username: postgres
     password: 123
   sql:
@@ -59,7 +59,7 @@ app:
   gmail:
     username: ${GMAIL_USERNAME:}
     app-password: ${GMAIL_APP_PASSWORD:}
-    from-name: AutoWash Pro
+    from-name: NovaWash
   speedsms:
     enabled: false
     access-token: ${SPEEDSMS_ACCESS_TOKEN:}

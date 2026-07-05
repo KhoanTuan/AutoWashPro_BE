@@ -55,9 +55,11 @@ public class SecurityConfig {
                                 "/api/v1/customer/auth/email/login",
                                 "/api/v1/customer/auth/email/forgot-password",
                                 "/api/v1/customer/auth/email/reset-password",
+                                "/api/v1/customer/auth/email/claim",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                "/ws/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()

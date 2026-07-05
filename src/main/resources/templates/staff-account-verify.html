@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Kích hoạt tài khoản nhân viên — AutoWash Pro</title>
+    <title>Kích hoạt tài khoản nhân viên — NovaWash</title>
     <th:block th:replace="~{email-styles :: common-css}"></th:block>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h1 th:text="${brandName}">AutoWash Pro</h1>
+        <h1 th:text="${brandName}">NovaWash</h1>
         <p style="margin:6px 0 0;font-size:15px;opacity:.95">Kích hoạt tài khoản nhân viên</p>
     </div>
     <div class="content">
         <p class="greeting">Xin chào <span th:text="${fullName}">Nhân viên</span>!</p>
-        <p>Quản trị viên đã tạo tài khoản nhân viên <strong th:text="${brandName}">AutoWash Pro</strong> cho bạn. Vui lòng bấm nút bên dưới để xác nhận email và kích hoạt tài khoản.</p>
+        <p>Quản trị viên đã tạo tài khoản nhân viên <strong th:text="${brandName}">NovaWash</strong> cho bạn. Vui lòng bấm nút bên dưới để xác nhận email và kích hoạt tài khoản.</p>
         <div class="info-box">
             Username của bạn: <strong th:text="${username}">username</strong><br/>
             Sau khi kích hoạt, đăng nhập tại trang <strong>Đăng nhập</strong> bằng username hoặc email và mật khẩu đã được cấp.
@@ -29,7 +29,7 @@
         <p style="font-size:13px;color:#94a3b8;margin-top:20px">Liên kết có thời hạn giới hạn. Nếu bạn không yêu cầu tài khoản này, hãy bỏ qua email.</p>
     </div>
     <div class="footer">
-        <p style="margin:0;font-weight:600" th:text="${brandName}">AutoWash Pro</p>
+        <p style="margin:0;font-weight:600" th:text="${brandName}">NovaWash</p>
         <p style="margin:4px 0">Email tự động — vui lòng không trả lời.</p>
     </div>
 </div>

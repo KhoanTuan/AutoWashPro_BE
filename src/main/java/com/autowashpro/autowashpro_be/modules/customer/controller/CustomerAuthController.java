@@ -131,7 +131,6 @@ public class CustomerAuthController {
     }
 
     @GetMapping("/me")
-    @ApiHidden
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
             operationId = "01-07-me",
@@ -176,7 +175,6 @@ public class CustomerAuthController {
     }
 
     @PostMapping("/email/login")
-    @ApiHidden
     @SecurityRequirements
     @Operation(
             operationId = "01-10-email-login",
@@ -217,5 +215,23 @@ public class CustomerAuthController {
         customerAuthService.resetPasswordByToken(request);
         return ResponseEntity.ok(MessageResponse.of(
                 "Password reset successfully. Please login with your new password."));
+    }
+
+    @PostMapping("/email/claim")
+    @SecurityRequirements
+    @Operation(
+            operationId = "01-13-email-claim-account",
+            summary = "[PUBLIC] Kích hoạt tài khoản được tạo lúc booking",
+            description = "FE route: `/claim-account?token=...` — khách (được admin/manager tạo khi đặt lịch) "
+                    + "đặt mật khẩu lần đầu và kích hoạt tài khoản (`PENDING_ACTIVATION` → `ACTIVE`)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Kích hoạt thành công, có thể đăng nhập bằng email"),
+            @ApiResponse(responseCode = "400", description = "Token sai/hết hạn/đã dùng hoặc mật khẩu không khớp")
+    })
+    public ResponseEntity<VerifyEmailTokenResponse> claimAccount(
+            @Valid @RequestBody CustomerClaimAccountRequest request
+    ) {
+        return ResponseEntity.ok(customerAuthService.claimAccount(request));
     }
 }

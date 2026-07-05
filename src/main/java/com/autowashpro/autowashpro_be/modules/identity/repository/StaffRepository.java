@@ -54,6 +54,29 @@ public interface StaffRepository extends JpaRepository<Staff, Long> {
     @Query("SELECT COUNT(DISTINCT s) FROM Staff s JOIN s.roles r WHERE s.deletedAt IS NULL AND r.roleName = :roleName")
     long countActiveByRoleName(@Param("roleName") String roleName);
 
+    @Query("""
+            SELECT COUNT(DISTINCT s) FROM Staff s JOIN s.roles r
+            WHERE s.deletedAt IS NULL AND r.roleName = :roleName AND s.status = :status
+            """)
+    long countByRoleNameAndStatus(@Param("roleName") String roleName,
+                                  @Param("status") StaffStatus status);
+
+    @Query("""
+            SELECT DISTINCT s FROM Staff s JOIN s.roles r
+            WHERE s.deletedAt IS NULL
+            AND r.roleName = :roleName
+            AND (:status IS NULL OR s.status = :status)
+            ORDER BY s.fullName ASC
+            """)
+    List<Staff> findByRoleNameAndStatus(@Param("roleName") String roleName,
+                                        @Param("status") StaffStatus status);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM Staff s JOIN s.roles r
+            WHERE s.deletedAt IS NULL AND s.staffId = :staffId AND r.roleName = :roleName
+            """)
+    boolean hasRoleName(@Param("staffId") Long staffId, @Param("roleName") String roleName);
+
     @Query("SELECT COUNT(s) FROM Staff s JOIN s.roles r WHERE r.roleId = :roleId AND s.deletedAt IS NULL")
     long countByRoleId(@Param("roleId") Integer roleId);
 }

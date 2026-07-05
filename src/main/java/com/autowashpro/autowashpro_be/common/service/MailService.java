@@ -48,14 +48,29 @@ public class MailService {
         String verificationUrl = frontendProperties.getUrl() + "/verify-email?token=" + token;
         return sendTemplateEmail(
                 toEmail,
-                "AutoWash Pro — Xác nhận địa chỉ email",
+                "NovaWash — Xác nhận địa chỉ email",
                 "registration-verify",
                 Map.of(
                         "fullName", fullName,
                         "verificationUrl", verificationUrl,
-                        "brandName", "AutoWash Pro"
+                        "brandName", "NovaWash"
                 ),
                 verificationUrl
+        );
+    }
+
+    public SendResult sendAccountClaimEmail(String toEmail, String fullName, String token) {
+        String claimUrl = frontendProperties.getUrl() + "/claim-account?token=" + token;
+        return sendTemplateEmail(
+                toEmail,
+                "NovaWash — Kích hoạt tài khoản & đặt mật khẩu",
+                "registration-verify",
+                Map.of(
+                        "fullName", fullName != null ? fullName : "bạn",
+                        "verificationUrl", claimUrl,
+                        "brandName", "NovaWash"
+                ),
+                claimUrl
         );
     }
 
@@ -63,13 +78,13 @@ public class MailService {
         String verificationUrl = frontendProperties.getUrl() + "/staff/verify-email?token=" + token;
         return sendTemplateEmail(
                 toEmail,
-                "AutoWash Pro — Kích hoạt tài khoản nhân viên",
+                "NovaWash — Kích hoạt tài khoản nhân viên",
                 "staff-account-verify",
                 Map.of(
                         "fullName", fullName,
                         "username", username,
                         "verificationUrl", verificationUrl,
-                        "brandName", "AutoWash Pro"
+                        "brandName", "NovaWash"
                 ),
                 verificationUrl
         );
@@ -88,12 +103,12 @@ public class MailService {
     private SendResult sendPasswordResetEmail(String toEmail, String fullName, String token, String resetUrl) {
         return sendTemplateEmail(
                 toEmail,
-                "AutoWash Pro — Đặt lại mật khẩu",
+                "NovaWash — Đặt lại mật khẩu",
                 "password-reset",
                 Map.of(
                         "fullName", fullName != null ? fullName : "bạn",
                         "resetUrl", resetUrl,
-                        "brandName", "AutoWash Pro",
+                        "brandName", "NovaWash",
                         "expiryMinutes", String.valueOf(securityTokenProperties.getPasswordResetMinutes())
                 ),
                 resetUrl

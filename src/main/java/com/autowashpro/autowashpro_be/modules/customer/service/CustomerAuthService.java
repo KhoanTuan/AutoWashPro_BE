@@ -11,6 +11,7 @@ import com.autowashpro.autowashpro_be.modules.identity.repository.StaffRepositor
 import com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository;
 import com.autowashpro.autowashpro_be.security.JwtTokenProvider;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -18,6 +19,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +37,7 @@ public class CustomerAuthService {
     private final NotificationService notificationService;
     private final MailService mailService;
     private final SecurityTokenService securityTokenService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public RegisterOtpSentResponse requestRegister(CustomerRegisterRequest request) {
         if (customerRepository.existsByPhoneNumber(request.getPhoneNumber())) {
@@ -127,40 +131,58 @@ public class CustomerAuthService {
 
     @Transactional
     public CustomerEmailRegisterResponse registerWithEmail(CustomerEmailRegisterRequest request) {
+        if (request.getUsername() == null || request.getUsername().isBlank()) {
+            throw new BadRequestException("Username is required and cannot be empty");
+        }
         String email = MailService.normalizeEmail(request.getEmail());
-        String username = request.getUsername().trim();
         String phoneNumber = normalizePhone(request.getPhoneNumber());
+        String username = request.getUsername().trim();
 
         if (staffRepository.findByUsername(username).isPresent()) {
             throw new BadRequestException("Username already taken");
         }
-        if (customerRepository.existsByUsername(username)) {
-            throw new BadRequestException("Username already registered");
-        }
-        if (customerRepository.existsByEmail(email)) {
-            throw new BadRequestException("Email already registered");
-        }
-        if (customerRepository.existsByPhoneNumber(phoneNumber)) {
-            throw new BadRequestException("Phone number already registered");
+
+        // Clean up any old unverified test account with PENDING_ACTIVATION from earlier tests
+        customerRepository.findByUsername(username).ifPresent(c -> {
+            if (c.getStatus() == CustomerStatus.PENDING_ACTIVATION) {
+                customerRepository.delete(c);
+                customerRepository.flush();
+            } else {
+                throw new BadRequestException("Username already registered");
+            }
+        });
+        customerRepository.findByEmail(email).ifPresent(c -> {
+            if (c.getStatus() == CustomerStatus.PENDING_ACTIVATION) {
+                customerRepository.delete(c);
+                customerRepository.flush();
+            } else {
+                throw new BadRequestException("Email already registered");
+            }
+        });
+        customerRepository.findByPhoneNumber(phoneNumber).ifPresent(c -> {
+            if (c.getStatus() == CustomerStatus.PENDING_ACTIVATION) {
+                customerRepository.delete(c);
+                customerRepository.flush();
+            } else {
+                throw new BadRequestException("Phone number already registered");
+            }
+        });
+
+        // Store registration data temporarily in security token payload WITHOUT creating customer entity
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(Map.of(
+                    "username", username,
+                    "email", email,
+                    "phoneNumber", phoneNumber,
+                    "fullName", request.getFullName().trim(),
+                    "passwordHash", passwordEncoder.encode(request.getPassword())
+            ));
+        } catch (Exception e) {
+            throw new BadRequestException("Failed to process registration data");
         }
 
-        LoyaltyTier regularTier = loyaltyTierRepository.findByTierName("REGULAR")
-                .or(() -> loyaltyTierRepository.findByTierName("MEMBER"))
-                .orElseThrow(() -> new BadRequestException("Default tier not configured"));
-
-        Customer customer = Customer.builder()
-                .username(username)
-                .email(email)
-                .phoneNumber(phoneNumber)
-                .fullName(request.getFullName().trim())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .authProvider(CustomerAuthProvider.EMAIL)
-                .status(CustomerStatus.PENDING_ACTIVATION)
-                .tier(regularTier)
-                .build();
-        customerRepository.save(customer);
-
-        SecurityToken securityToken = securityTokenService.createToken(customer, SecurityTokenType.EMAIL_VERIFICATION);
+        SecurityToken securityToken = securityTokenService.createRegistrationToken(payload, SecurityTokenType.EMAIL_VERIFICATION);
         MailService.SendResult sendResult = mailService.sendRegistrationVerificationEmail(
                 email, request.getFullName(), securityToken.getToken());
 
@@ -169,7 +191,7 @@ public class CustomerAuthService {
         }
 
         CustomerEmailRegisterResponse.CustomerEmailRegisterResponseBuilder builder = CustomerEmailRegisterResponse.builder()
-                .message("Registration successful. Please check your email to activate your account.")
+                .message("Registration initiated. Please check your email and confirm to create your account.")
                 .email(email)
                 .mailMode(sendResult.mode());
 
@@ -185,14 +207,50 @@ public class CustomerAuthService {
         SecurityToken securityToken = securityTokenService.requireValidToken(
                 tokenValue, SecurityTokenType.EMAIL_VERIFICATION);
 
-        Customer customer = securityToken.getCustomer();
-        customer.setStatus(CustomerStatus.ACTIVE);
-        customerRepository.save(customer);
+        if (securityToken.getPayload() != null) {
+            try {
+                Map<String, String> data = objectMapper.readValue(securityToken.getPayload(), Map.class);
+                String username = data.get("username");
+                String email = data.get("email");
+                String phoneNumber = data.get("phoneNumber");
+
+                if (customerRepository.existsByUsername(username) || customerRepository.existsByEmail(email) || customerRepository.existsByPhoneNumber(phoneNumber)) {
+                    throw new BadRequestException("Account already registered or verified");
+                }
+
+                LoyaltyTier regularTier = loyaltyTierRepository.findByTierName("REGULAR")
+                        .or(() -> loyaltyTierRepository.findByTierName("MEMBER"))
+                        .orElseThrow(() -> new BadRequestException("Default tier not configured"));
+
+                Customer customer = Customer.builder()
+                        .username(username)
+                        .email(email)
+                        .phoneNumber(phoneNumber)
+                        .fullName(data.get("fullName"))
+                        .passwordHash(data.get("passwordHash"))
+                        .authProvider(CustomerAuthProvider.EMAIL)
+                        .status(CustomerStatus.ACTIVE)
+                        .tier(regularTier)
+                        .build();
+
+                customerRepository.save(customer);
+            } catch (Exception e) {
+                if (e instanceof BadRequestException) throw (BadRequestException) e;
+                throw new BadRequestException("Invalid registration data in token: " + e.getMessage());
+            }
+        } else if (securityToken.getCustomer() != null) {
+            Customer customer = securityToken.getCustomer();
+            customer.setStatus(CustomerStatus.ACTIVE);
+            customerRepository.save(customer);
+        } else {
+            throw new BadRequestException("Invalid token: missing account information");
+        }
+
         securityTokenService.markUsed(securityToken);
 
         return VerifyEmailTokenResponse.builder()
                 .success(true)
-                .message("Email verified successfully. Please login to continue.")
+                .message("Email verified successfully. Your account has been created and activated.")
                 .build();
     }
 
@@ -247,6 +305,32 @@ public class CustomerAuthService {
         customer.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         customerRepository.save(customer);
         securityTokenService.markUsed(securityToken);
+    }
+
+    /**
+     * Khách (được tạo lúc admin/manager đặt booking) claim tài khoản qua link email:
+     * đặt mật khẩu + kích hoạt (PENDING_ACTIVATION → ACTIVE) để có thể đăng nhập bằng email.
+     */
+    @Transactional
+    public VerifyEmailTokenResponse claimAccount(CustomerClaimAccountRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BadRequestException("Password and confirm password do not match");
+        }
+
+        SecurityToken securityToken = securityTokenService.requireValidToken(
+                request.getToken(), SecurityTokenType.ACCOUNT_CLAIM);
+
+        Customer customer = securityToken.getCustomer();
+        customer.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        customer.setAuthProvider(CustomerAuthProvider.EMAIL);
+        customer.setStatus(CustomerStatus.ACTIVE);
+        customerRepository.save(customer);
+        securityTokenService.markUsed(securityToken);
+
+        return VerifyEmailTokenResponse.builder()
+                .success(true)
+                .message("Account activated successfully. You can now login with your email.")
+                .build();
     }
 
     @Transactional(readOnly = true)

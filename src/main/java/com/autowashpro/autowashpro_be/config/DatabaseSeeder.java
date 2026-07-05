@@ -1,17 +1,19 @@
 package com.autowashpro.autowashpro_be.config;
 
+
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerAuthProvider;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
 import com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyTier;
+import com.autowashpro.autowashpro_be.modules.customer.entity.Vehicle;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository;
+import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
 import com.autowashpro.autowashpro_be.modules.identity.PermissionCatalog;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Permission;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Role;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
 import com.autowashpro.autowashpro_be.modules.identity.entity.StaffStatus;
-import com.autowashpro.autowashpro_be.modules.identity.entity.StaffWorkStatus;
 import com.autowashpro.autowashpro_be.modules.identity.repository.PermissionRepository;
 import com.autowashpro.autowashpro_be.modules.identity.repository.RoleRepository;
 import com.autowashpro.autowashpro_be.modules.identity.repository.StaffRepository;
@@ -23,7 +25,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 @Component
@@ -36,6 +40,8 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final StaffRepository staffRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final CustomerRepository customerRepository;
+    private final VehicleRepository vehicleRepository;
+
     private final PasswordEncoder passwordEncoder;
 
     private Map<String, Permission> ensurePermissions() {
@@ -74,18 +80,20 @@ public class DatabaseSeeder implements CommandLineRunner {
         roles.put("ROLE_ADMIN", ensureRole("ROLE_ADMIN", "System Administrator", adminPerms));
 
         roles.put("ROLE_MANAGER", ensureRole("ROLE_MANAGER", "Station Manager", pick(permissionMap,
-                PermissionCatalog.READ_STAFF, PermissionCatalog.CREATE_UPDATE_STAFF, "ASSIGN_ROLE",
-                "VIEW_CUSTOMER_PROFILE", "MANAGE_CUSTOMER_STATUS",
-                "CREATE_WALK_IN_BOOKING", "CASHIER_CHECKIN", "VIEW_SLOT_AVAILABILITY",
-                "MONITOR_REALTIME_QUEUE", "VIEW_TECH_QUEUE"
-        )));
-
-        roles.put("ROLE_TECHNICIAN", ensureRole("ROLE_TECHNICIAN", "Bay Technician", pick(permissionMap,
-                "VIEW_TECH_QUEUE", "TASK_CHECKLIST", "MONITOR_REALTIME_QUEUE"
+                PermissionCatalog.READ_STAFF, PermissionCatalog.CREATE_UPDATE_STAFF, PermissionCatalog.ASSIGN_ROLE,
+                PermissionCatalog.VIEW_CUSTOMER_PROFILE, PermissionCatalog.MANAGE_CUSTOMER_STATUS, PermissionCatalog.MANAGE_LOYALTY_CONFIG,
+                PermissionCatalog.CREATE_WALK_IN_BOOKING, PermissionCatalog.CASHIER_CHECKIN, PermissionCatalog.CANCEL_BOOKING,
+                PermissionCatalog.VIEW_SLOT_AVAILABILITY, PermissionCatalog.VIEW_STATION_QUEUE, PermissionCatalog.MANAGE_WASH_PROGRESS,
+                PermissionCatalog.MONITOR_REALTIME_QUEUE, PermissionCatalog.VIEW_DASHBOARD_STATS,
+                PermissionCatalog.MANAGE_SERVICE_CATALOG, PermissionCatalog.MANAGE_SLOT_CONFIG, PermissionCatalog.MANAGE_STATION_SETTINGS,
+                PermissionCatalog.SEND_INCIDENT_ALERT
         )));
 
         roles.put("ROLE_CASHIER", ensureRole("ROLE_CASHIER", "Front Desk Cashier", pick(permissionMap,
-                "VIEW_CUSTOMER_PROFILE", "CREATE_WALK_IN_BOOKING", "CASHIER_CHECKIN", "VIEW_SLOT_AVAILABILITY"
+                PermissionCatalog.VIEW_CUSTOMER_PROFILE, PermissionCatalog.CREATE_WALK_IN_BOOKING,
+                PermissionCatalog.CASHIER_CHECKIN, PermissionCatalog.CANCEL_BOOKING, PermissionCatalog.VIEW_SLOT_AVAILABILITY,
+                PermissionCatalog.VIEW_STATION_QUEUE, PermissionCatalog.MANAGE_WASH_PROGRESS, PermissionCatalog.MONITOR_REALTIME_QUEUE,
+                PermissionCatalog.SEND_INCIDENT_ALERT
         )));
 
         return roles;
@@ -93,41 +101,11 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private static final List<DemoStaffSeed> DEMO_STAFF = List.of(
             new DemoStaffSeed("admin", "admin@autowashpro.com", "0901000001", "Nguyen Van Admin",
-                    "Admin@123", "ROLE_ADMIN", StaffStatus.ACTIVE, StaffWorkStatus.IDLE,
-                    false, 99.0, 210, 5.0),
+                    "Admin@123", "ROLE_ADMIN", StaffStatus.ACTIVE, false),
             new DemoStaffSeed("manager", "manager@autowashpro.com", "0901000002", "Tran Thi Manager",
-                    "Manager@123", "ROLE_MANAGER", StaffStatus.ACTIVE, StaffWorkStatus.IDLE,
-                    false, 96.5, 185, 4.9),
-            new DemoStaffSeed("tech01", "tech01@autowashpro.com", "0901000003", "Le Van An",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.IDLE,
-                    false, 98.0, 142, 4.9),
-            new DemoStaffSeed("tech02", "tech02@autowashpro.com", "0901000004", "Pham Thi Binh",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.BUSY,
-                    false, 91.0, 128, 4.8),
-            new DemoStaffSeed("tech03", "tech03@autowashpro.com", "0901000005", "Hoang Minh Cuong",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.ON_BREAK,
-                    false, 88.0, 89, 4.7),
-            new DemoStaffSeed("tech04", "tech04@autowashpro.com", "0901000006", "Vo Thi Dung",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.OFF,
-                    false, 92.0, 115, 4.8),
-            new DemoStaffSeed("tech05", "tech05@autowashpro.com", "0901000007", "Dang Quoc Em",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.IDLE,
-                    false, 72.0, 45, 4.2),
-            new DemoStaffSeed("tech06", "tech06@autowashpro.com", "0901000008", "Bui Van Phuc",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.BUSY,
-                    true, 85.0, 67, 4.5),
-            new DemoStaffSeed("tech07", "tech07@autowashpro.com", "0901000009", "Ngo Thi Giang",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.INACTIVE, StaffWorkStatus.OFF,
-                    false, 80.0, 52, 4.0),
-            new DemoStaffSeed("tech08", "tech08@autowashpro.com", "0901000010", "Do Van Hieu",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.IDLE,
-                    false, 97.5, 156, 5.0),
-            new DemoStaffSeed("tech09", "tech09@autowashpro.com", "0901000011", "Ly Thi Khanh",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.ON_BREAK,
-                    false, 76.0, 38, 3.8),
-            new DemoStaffSeed("tech10", "tech10@autowashpro.com", "0901000012", "Mai Van Long",
-                    "Tech@123", "ROLE_TECHNICIAN", StaffStatus.ACTIVE, StaffWorkStatus.OFF,
-                    false, 0.0, 0, 5.0)
+                    "Manager@123", "ROLE_MANAGER", StaffStatus.ACTIVE, false),
+            new DemoStaffSeed("cashier", "cashier@autowashpro.com", "0901000003", "Le Van Cashier",
+                    "Cashier@123", "ROLE_CASHIER", StaffStatus.ACTIVE, false)
     );
 
     @Override
@@ -139,7 +117,8 @@ public class DatabaseSeeder implements CommandLineRunner {
         seedDemoStaff(rolesByName);
         patchExistingStaffDefaults();
         seedDemoCustomers();
-        log.info("Demo staff ready — admin/Admin@123, manager/Manager@123, tech01-10/Tech@123");
+        seedDemoVehicles();
+        log.info("Demo staff ready — admin/Admin@123, manager/Manager@123, cashier/Cashier@123");
         log.info("Demo customers ready — password Customer@123");
     }
 
@@ -180,10 +159,6 @@ public class DatabaseSeeder implements CommandLineRunner {
                 .passwordHash(passwordEncoder.encode(seed.password()))
                 .requirePasswordChange(seed.requirePasswordChange())
                 .status(seed.accountStatus())
-                .workStatus(seed.workStatus())
-                .performanceKpi(seed.performanceKpi())
-                .totalJobsCompleted(seed.totalJobs())
-                .serviceRating(seed.serviceRating())
                 .roles(new HashSet<>(Set.of(role)))
                 .build();
     }
@@ -194,10 +169,6 @@ public class DatabaseSeeder implements CommandLineRunner {
         staff.setFullName(seed.fullName());
         staff.setRequirePasswordChange(seed.requirePasswordChange());
         staff.setStatus(seed.accountStatus());
-        staff.setWorkStatus(seed.workStatus());
-        staff.setPerformanceKpi(seed.performanceKpi());
-        staff.setTotalJobsCompleted(seed.totalJobs());
-        staff.setServiceRating(seed.serviceRating());
         staff.setRoles(new HashSet<>(Set.of(role)));
         staffRepository.save(staff);
     }
@@ -209,18 +180,6 @@ public class DatabaseSeeder implements CommandLineRunner {
             }
             if (staff.getRequirePasswordChange() == null) {
                 staff.setRequirePasswordChange(false);
-            }
-            if (staff.getWorkStatus() == null) {
-                staff.setWorkStatus(StaffWorkStatus.IDLE);
-            }
-            if (staff.getPerformanceKpi() == null) {
-                staff.setPerformanceKpi(0.0);
-            }
-            if (staff.getTotalJobsCompleted() == null) {
-                staff.setTotalJobsCompleted(0);
-            }
-            if (staff.getServiceRating() == null) {
-                staff.setServiceRating(5.0);
             }
             staffRepository.save(staff);
         }
@@ -252,14 +211,14 @@ public class DatabaseSeeder implements CommandLineRunner {
         loyaltyTierRepository.findAll().forEach(t -> tiers.put(t.getTierName(), t));
 
         List<DemoCustomerSeed> seeds = List.of(
-                new DemoCustomerSeed("Nguyen Van An", "0902000001", "an.nguyen@email.com", "REGULAR", CustomerStatus.ACTIVE, 12, 2400000, 850),
-                new DemoCustomerSeed("Tran Thi Binh", "0902000002", "binh.tran@email.com", "SILVER", CustomerStatus.ACTIVE, 28, 5200000, 2100),
-                new DemoCustomerSeed("Le Minh Cuong", "0902000003", "cuong.le@email.com", "GOLD", CustomerStatus.ACTIVE, 45, 9800000, 4800),
-                new DemoCustomerSeed("Pham Thi Dung", "0902000004", "dung.pham@email.com", "PLATINUM", CustomerStatus.ACTIVE, 62, 15200000, 9200),
-                new DemoCustomerSeed("Hoang Van Em", "0902000005", "em.hoang@email.com", "REGULAR", CustomerStatus.ACTIVE, 5, 650000, 120),
-                new DemoCustomerSeed("Vo Thi Phuong", "0902000006", "phuong.vo@email.com", "SILVER", CustomerStatus.INACTIVE, 18, 3100000, 900),
-                new DemoCustomerSeed("Dang Quoc Giang", "0902000007", "giang.dang@email.com", "REGULAR", CustomerStatus.ACTIVE, 2, 180000, 40),
-                new DemoCustomerSeed("Bui Thi Hoa", "0902000008", "hoa.bui@email.com", "GOLD", CustomerStatus.ACTIVE, 35, 7200000, 3500)
+                new DemoCustomerSeed("annguyen", "Nguyen Van An", "0902000001", "an.nguyen@email.com", "REGULAR", CustomerStatus.ACTIVE, 12, 2400000, 850),
+                new DemoCustomerSeed("binhtran", "Tran Thi Binh", "0902000002", "binh.tran@email.com", "SILVER", CustomerStatus.ACTIVE, 28, 5200000, 2100),
+                new DemoCustomerSeed("cuongle", "Le Minh Cuong", "0902000003", "cuong.le@email.com", "GOLD", CustomerStatus.ACTIVE, 45, 9800000, 4800),
+                new DemoCustomerSeed("dungpham", "Pham Thi Dung", "0902000004", "dung.pham@email.com", "PLATINUM", CustomerStatus.ACTIVE, 62, 15200000, 9200),
+                new DemoCustomerSeed("emhoang", "Hoang Van Em", "0902000005", "em.hoang@email.com", "REGULAR", CustomerStatus.ACTIVE, 5, 650000, 120),
+                new DemoCustomerSeed("phuongvo", "Vo Thi Phuong", "0902000006", "phuong.vo@email.com", "SILVER", CustomerStatus.INACTIVE, 18, 3100000, 900),
+                new DemoCustomerSeed("giangdang", "Dang Quoc Giang", "0902000007", "giang.dang@email.com", "REGULAR", CustomerStatus.ACTIVE, 2, 180000, 40),
+                new DemoCustomerSeed("hoabui", "Bui Thi Hoa", "0902000008", "hoa.bui@email.com", "GOLD", CustomerStatus.ACTIVE, 35, 7200000, 3500)
         );
 
         for (DemoCustomerSeed seed : seeds) {
@@ -272,6 +231,7 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private void createDemoCustomer(DemoCustomerSeed seed, LoyaltyTier tier) {
         customerRepository.save(Customer.builder()
+                .username(seed.username())
                 .fullName(seed.fullName())
                 .phoneNumber(seed.phone())
                 .email(seed.email())
@@ -287,6 +247,9 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private void updateDemoCustomer(Customer customer, DemoCustomerSeed seed, LoyaltyTier tier) {
+        if (customer.getUsername() == null || customer.getUsername().isBlank()) {
+            customer.setUsername(seed.username());
+        }
         customer.setFullName(seed.fullName());
         customer.setEmail(seed.email());
         customer.setStatus(seed.status());
@@ -297,7 +260,44 @@ public class DatabaseSeeder implements CommandLineRunner {
         customerRepository.save(customer);
     }
 
+    private static final List<DemoVehicleSeed> DEMO_VEHICLES = List.of(
+            new DemoVehicleSeed("0902000001", "51A-12345", "Honda SH 150i"),
+            new DemoVehicleSeed("0902000002", "51B-67890", "Yamaha Exciter 150"),
+            new DemoVehicleSeed("0902000003", "30C-11223", "Vespa GTS 300"),
+            new DemoVehicleSeed("0902000004", "43D-44556", "Honda Air Blade"),
+            new DemoVehicleSeed("0902000005", "59E-77889", "Honda Vision"),
+            new DemoVehicleSeed("0902000006", "77F-99001", "Yamaha NVX 155"),
+            new DemoVehicleSeed("0902000007", "92G-22334", "Honda SH Mode"),
+            new DemoVehicleSeed("0902000008", "61H-55667", "Honda Lead")
+    );
+
+    private void seedDemoVehicles() {
+        for (DemoVehicleSeed seed : DEMO_VEHICLES) {
+            if (vehicleRepository.existsByLicensePlateIgnoreCase(seed.licensePlate())) {
+                continue;
+            }
+            customerRepository.findByPhoneNumber(seed.phone()).ifPresentOrElse(
+                    customer -> vehicleRepository.save(Vehicle.builder()
+                            .customer(customer)
+                            .licensePlate(seed.licensePlate())
+                            .model(seed.model())
+                            .build()),
+                    () -> log.warn("Customer with phone {} not found — skip vehicle {}",
+                            seed.phone(), seed.licensePlate())
+            );
+        }
+    }
+
+
+
+    private record DemoVehicleSeed(
+            String phone,
+            String licensePlate,
+            String model
+    ) {}
+
     private record DemoCustomerSeed(
+            String username,
             String fullName,
             String phone,
             String email,
@@ -316,10 +316,6 @@ public class DatabaseSeeder implements CommandLineRunner {
             String password,
             String roleName,
             StaffStatus accountStatus,
-            StaffWorkStatus workStatus,
-            boolean requirePasswordChange,
-            double performanceKpi,
-            int totalJobs,
-            double serviceRating
+            boolean requirePasswordChange
     ) {}
 }

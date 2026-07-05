@@ -34,14 +34,10 @@ public class CustomerEmailRegisterRequest {
 
 
 
-    @NotBlank
-
+    @NotBlank(message = "Username cannot be empty")
     @Size(min = 3, max = 50)
-
     @Pattern(regexp = "^[a-zA-Z0-9._-]+$", message = "Username may only contain letters, numbers, dot, underscore and hyphen")
-
-    @Schema(description = "Tên đăng nhập (viết liền, không dấu)", example = "nguyenvana")
-
+    @Schema(description = "Tên đăng nhập (bắt buộc)", example = "nguyenvana")
     private String username;
 
 
