@@ -9,7 +9,6 @@ import com.autowashpro.autowashpro_be.modules.identity.dto.StaffEmailForgotPassw
 import com.autowashpro.autowashpro_be.modules.identity.dto.StaffForgotPasswordResponse;
 import com.autowashpro.autowashpro_be.modules.identity.dto.StaffResetPasswordTokenRequest;
 import com.autowashpro.autowashpro_be.modules.identity.service.AuthService;
-import com.autowashpro.autowashpro_be.common.openapi.ApiHidden;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -108,7 +107,6 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    @ApiHidden
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
             operationId = "02-02-me",
@@ -133,7 +131,6 @@ public class AuthController {
     }
 
     @PutMapping("/change-password")
-    @ApiHidden
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
             operationId = "02-03-change-password",

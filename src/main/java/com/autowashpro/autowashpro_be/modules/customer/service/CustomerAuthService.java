@@ -7,8 +7,9 @@ import com.autowashpro.autowashpro_be.common.service.NotificationService;
 import com.autowashpro.autowashpro_be.modules.customer.dto.*;
 import com.autowashpro.autowashpro_be.modules.customer.entity.*;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
-import com.autowashpro.autowashpro_be.modules.identity.repository.StaffRepository;
 import com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository;
+import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
+import com.autowashpro.autowashpro_be.modules.identity.repository.StaffRepository;
 import com.autowashpro.autowashpro_be.security.JwtTokenProvider;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -29,6 +31,7 @@ public class CustomerAuthService {
     private final CustomerRepository customerRepository;
     private final StaffRepository staffRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
+    private final VehicleRepository vehicleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManager authenticationManager;
@@ -369,14 +372,38 @@ public class CustomerAuthService {
         Customer customer = customerRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
+        List<VehicleResponse> vehicles = vehicleRepository.findByCustomerCustomerIdOrderByCreatedAtAsc(customer.getCustomerId())
+                .stream()
+                .map(v -> VehicleResponse.builder()
+                        .vehicleId(v.getVehicleId())
+                        .customerId(customer.getCustomerId())
+                        .licensePlate(v.getLicensePlate())
+                        .model(v.getModel())
+                        .createdAt(v.getCreatedAt())
+                        .build())
+                .toList();
+
+        String tierName = customer.getTier() != null && customer.getTier().getTierName() != null ? customer.getTier().getTierName() : "REGULAR";
+        String dispName = switch (tierName.toUpperCase()) {
+            case "REGULAR", "MEMBER" -> "Member";
+            case "SILVER" -> "Silver";
+            case "GOLD" -> "Gold";
+            case "PLATINUM" -> "Platinum";
+            default -> tierName;
+        };
+        int windowDays = customer.getTier() != null && customer.getTier().getBookingWindowDays() != null ? customer.getTier().getBookingWindowDays() : 7;
+
         return CustomerProfileResponse.builder()
                 .customerId(customer.getCustomerId())
                 .phoneNumber(customer.getPhoneNumber())
                 .fullName(customer.getFullName())
-                .tierName(customer.getTier().getTierName())
+                .tierName(tierName)
+                .tierDisplayName(dispName)
+                .bookingWindowDays(windowDays)
                 .visitCount(customer.getVisitCount())
                 .totalSpending(customer.getTotalSpending())
                 .loyaltyPoints(customer.getLoyaltyPoints())
+                .vehicles(vehicles)
                 .build();
     }
 

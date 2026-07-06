@@ -14,4 +14,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     Optional<Vehicle> findFirstByCustomerCustomerIdOrderByCreatedAtAsc(Long customerId);
 
     boolean existsByLicensePlateIgnoreCase(String licensePlate);
+
+    long countByCustomerCustomerId(Long customerId);
 }
+

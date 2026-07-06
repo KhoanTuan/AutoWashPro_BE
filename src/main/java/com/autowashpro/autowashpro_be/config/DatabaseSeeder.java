@@ -1,6 +1,12 @@
 package com.autowashpro.autowashpro_be.config;
 
 
+import com.autowashpro.autowashpro_be.modules.booking.entity.*;
+import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
+import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogRepository;
+import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
+import com.autowashpro.autowashpro_be.modules.notification.entity.*;
+import com.autowashpro.autowashpro_be.modules.notification.repository.NotificationRepository;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerAuthProvider;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
@@ -41,6 +47,10 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final CustomerRepository customerRepository;
     private final VehicleRepository vehicleRepository;
+    private final ServiceCatalogRepository serviceCatalogRepository;
+    private final TimeSlotRepository timeSlotRepository;
+    private final BookingRepository bookingRepository;
+    private final NotificationRepository notificationRepository;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -118,8 +128,13 @@ public class DatabaseSeeder implements CommandLineRunner {
         patchExistingStaffDefaults();
         seedDemoCustomers();
         seedDemoVehicles();
+        seedServiceCatalog();
+        seedTimeSlots();
+        seedDemoBookings();
+        seedDemoNotifications();
         log.info("Demo staff ready — admin/Admin@123, manager/Manager@123, cashier/Cashier@123");
         log.info("Demo customers ready — password Customer@123");
+        log.info("Demo service catalog, time slots, bookings & notifications seeded successfully for E2E-1!");
     }
 
     private Role ensureRole(String roleName, String description, Collection<Permission> permissions) {
@@ -288,6 +303,215 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
     }
 
+    private void seedServiceCatalog() {
+        if (serviceCatalogRepository.count() > 0) return;
+        List<ServiceCatalog> services = List.of(
+                ServiceCatalog.builder().serviceCode("PKG-STD").serviceName("Rửa xe máy tiêu chuẩn").serviceType(ServiceType.PACKAGE).price(new BigDecimal("30000.00")).durationMinutes(15).description("Rửa bọt tuyết chuyên dụng, xịt khô, lau bóng").isActive(true).displayOrder(1).build(),
+                ServiceCatalog.builder().serviceCode("PKG-DELUXE").serviceName("Rửa xe máy cao cấp").serviceType(ServiceType.PACKAGE).price(new BigDecimal("50000.00")).durationMinutes(25).description("Rửa bọt tuyết, tẩy nhờn lốc máy, dưỡng bóng lốp").isActive(true).displayOrder(2).build(),
+                ServiceCatalog.builder().serviceCode("PKG-ULTIMATE").serviceName("Rửa xe máy siêu cấp & bảo dưỡng").serviceType(ServiceType.PACKAGE).price(new BigDecimal("80000.00")).durationMinutes(40).description("Rửa chi tiết toàn diện, tẩy ố xích chíp, dưỡng nhựa nhám, tra dầu xích").isActive(true).displayOrder(3).build(),
+                ServiceCatalog.builder().serviceCode("ADD-CHAIN").serviceName("Tẩy rửa và dưỡng xích (sên)").serviceType(ServiceType.ADDON).price(new BigDecimal("20000.00")).durationMinutes(10).description("Tẩy sạch cặn bẩn xích, tra dầu bôi trơn chuyên dụng").isActive(true).displayOrder(4).build(),
+                ServiceCatalog.builder().serviceCode("ADD-HELMET").serviceName("Vệ sinh mũ bảo hiểm khử khuẩn").serviceType(ServiceType.ADDON).price(new BigDecimal("15000.00")).durationMinutes(10).description("Khử mùi bọt nano, sấy khô mũ bảo hiểm").isActive(true).displayOrder(5).build()
+        );
+        serviceCatalogRepository.saveAll(services);
+    }
+
+    private void seedTimeSlots() {
+        if (timeSlotRepository.count() > 0) return;
+        List<TimeSlot> slots = List.of(
+                TimeSlot.builder().startTime(LocalTime.of(8, 0)).endTime(LocalTime.of(9, 0)).maxCapacity(3).isActive(true).displayOrder(1).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(10, 0)).maxCapacity(3).isActive(true).displayOrder(2).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0)).maxCapacity(3).isActive(true).displayOrder(3).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(15, 0)).maxCapacity(3).isActive(true).displayOrder(4).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(15, 0)).endTime(LocalTime.of(16, 0)).maxCapacity(3).isActive(true).displayOrder(5).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(16, 0)).endTime(LocalTime.of(17, 0)).maxCapacity(3).isActive(true).displayOrder(6).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(17, 0)).endTime(LocalTime.of(18, 0)).maxCapacity(5).isActive(true).displayOrder(7).dayOfWeek("WEEKEND").build(),
+                TimeSlot.builder().startTime(LocalTime.of(18, 0)).endTime(LocalTime.of(19, 0)).maxCapacity(5).isActive(true).displayOrder(8).dayOfWeek("WEEKEND").build()
+        );
+        timeSlotRepository.saveAll(slots);
+    }
+
+
+    private void seedDemoBookings() {
+        if (bookingRepository.count() > 0) return;
+
+        List<ServiceCatalog> allServices = serviceCatalogRepository.findAll();
+        List<TimeSlot> allSlots = timeSlotRepository.findAll();
+        if (allServices.isEmpty() || allSlots.isEmpty()) return;
+
+        ServiceCatalog pkgStd = allServices.stream().filter(s -> "PKG-STD".equals(s.getServiceCode())).findFirst().orElse(allServices.get(0));
+        ServiceCatalog pkgDeluxe = allServices.stream().filter(s -> "PKG-DELUXE".equals(s.getServiceCode())).findFirst().orElse(allServices.get(0));
+        ServiceCatalog pkgUltimate = allServices.stream().filter(s -> "PKG-ULTIMATE".equals(s.getServiceCode())).findFirst().orElse(allServices.get(0));
+        ServiceCatalog addHelmet = allServices.stream().filter(s -> "ADD-HELMET".equals(s.getServiceCode())).findFirst().orElse(null);
+
+        TimeSlot slot8_9 = allSlots.stream().filter(s -> s.getDisplayOrder() == 1).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot9_10 = allSlots.stream().filter(s -> s.getDisplayOrder() == 2).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot10_11 = allSlots.stream().filter(s -> s.getDisplayOrder() == 3).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot14_15 = allSlots.stream().filter(s -> s.getDisplayOrder() == 4).findFirst().orElse(allSlots.get(0));
+
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
+
+        // Booking 1: Customer 0902000001 (Tran Van An), Slot 8-9 today, PKG-STD + ADD-HELMET, PENDING
+        customerRepository.findByPhoneNumber("0902000001").ifPresent(cus -> {
+            Booking b1 = Booking.builder()
+                    .bookingCode("NV-1001")
+                    .customer(cus)
+                    .licensePlate("29A-12345")
+                    .model("Honda SH 150i")
+                    .bookingDate(today)
+                    .timeSlot(slot8_9)
+                    .status(BookingStatus.PENDING)
+                    .paymentStatus(PaymentStatus.UNPAID)
+                    .totalEstimatedAmount(pkgStd.getPrice().add(addHelmet != null ? addHelmet.getPrice() : BigDecimal.ZERO))
+                    .notes("Khách dặn rửa kỹ lốp xe")
+                    .build();
+            b1.addItem(createBookingItem(pkgStd));
+            if (addHelmet != null) b1.addItem(createBookingItem(addHelmet));
+            bookingRepository.save(b1);
+        });
+
+        // Booking 2: Customer 0902000002 (Le Thi Mai), Slot 9-10 today, PKG-DELUXE, CONFIRMED
+        customerRepository.findByPhoneNumber("0902000002").ifPresent(cus -> {
+            Booking b2 = Booking.builder()
+                    .bookingCode("NV-1002")
+                    .customer(cus)
+                    .licensePlate("51B-67890")
+                    .model("Yamaha Grande")
+                    .bookingDate(today)
+                    .timeSlot(slot9_10)
+                    .status(BookingStatus.CONFIRMED)
+                    .paymentStatus(PaymentStatus.UNPAID)
+                    .totalEstimatedAmount(pkgDeluxe.getPrice())
+                    .notes("Khách hẹn đến đúng giờ")
+                    .build();
+            b2.addItem(createBookingItem(pkgDeluxe));
+            bookingRepository.save(b2);
+        });
+
+        // Booking 3: Customer 0902000003 (Pham Huu Tho), Slot 10-11 today, PKG-ULTIMATE, IN_PROGRESS
+        customerRepository.findByPhoneNumber("0902000003").ifPresent(cus -> {
+            Booking b3 = Booking.builder()
+                    .bookingCode("NV-1003")
+                    .customer(cus)
+                    .licensePlate("43C-11223")
+                    .model("Vespa Sprint")
+                    .bookingDate(today)
+                    .timeSlot(slot10_11)
+                    .status(BookingStatus.IN_PROGRESS)
+                    .paymentStatus(PaymentStatus.PAID)
+                    .totalEstimatedAmount(pkgUltimate.getPrice())
+                    .notes("Đang rửa chi tiết")
+                    .build();
+            b3.addItem(createBookingItem(pkgUltimate));
+            bookingRepository.save(b3);
+        });
+
+        // Booking 4: Customer 0902000004 (Nguyen Hoang Yen), Slot 14-15 tomorrow, PKG-DELUXE, CANCELLED_BY_CUSTOMER
+        customerRepository.findByPhoneNumber("0902000004").ifPresent(cus -> {
+            Booking b4 = Booking.builder()
+                    .bookingCode("NV-1004")
+                    .customer(cus)
+                    .licensePlate("30D-44556")
+                    .model("Honda Vision")
+                    .bookingDate(tomorrow)
+                    .timeSlot(slot14_15)
+                    .status(BookingStatus.CANCELLED_BY_CUSTOMER)
+                    .paymentStatus(PaymentStatus.UNPAID)
+                    .totalEstimatedAmount(pkgDeluxe.getPrice())
+                    .notes("Khách bận đột xuất nên hủy")
+                    .build();
+            b4.addItem(createBookingItem(pkgDeluxe));
+            bookingRepository.save(b4);
+        });
+    }
+
+    private BookingItem createBookingItem(ServiceCatalog sc) {
+        return BookingItem.builder()
+                .serviceId(sc.getServiceId())
+                .serviceCodeSnapshot(sc.getServiceCode())
+                .serviceNameSnapshot(sc.getServiceName())
+                .serviceTypeSnapshot(sc.getServiceType())
+                .priceSnapshot(sc.getPrice())
+                .build();
+    }
+
+    private void seedDemoNotifications() {
+        if (notificationRepository.count() > 0) return;
+
+        List<Notification> notifications = new ArrayList<>();
+
+        // Customer 0902000001 (Tran Van An)
+        customerRepository.findByPhoneNumber("0902000001").ifPresent(cus -> {
+            notifications.add(Notification.builder()
+                    .recipientType(NotificationRecipientType.CUSTOMER)
+                    .recipientId(cus.getCustomerId())
+                    .title("🎉 Đặt lịch thành công!")
+                    .content("Mã đơn NV-1001 cho khung giờ 08:00 - 09:00 ngày hôm nay đã được ghi nhận.")
+                    .type(NotificationType.NEW_BOOKING)
+                    .referenceCode("NV-1001")
+                    .isRead(false)
+                    .build());
+            notifications.add(Notification.builder()
+                    .recipientType(NotificationRecipientType.CUSTOMER)
+                    .recipientId(cus.getCustomerId())
+                    .title("👑 Chào mừng thành viên mới!")
+                    .content("Bạn đã chính thức trở thành thành viên Member của AutoWash Pro.")
+                    .type(NotificationType.SYSTEM_ALERT)
+                    .referenceCode("WELCOME")
+                    .isRead(true)
+                    .build());
+        });
+
+        // Customer 0902000002 (Le Thi Mai)
+        customerRepository.findByPhoneNumber("0902000002").ifPresent(cus -> {
+            notifications.add(Notification.builder()
+                    .recipientType(NotificationRecipientType.CUSTOMER)
+                    .recipientId(cus.getCustomerId())
+                    .title("🎉 Đặt lịch thành công!")
+                    .content("Mã đơn NV-1002 cho khung giờ 09:00 - 10:00 ngày hôm nay đã được tiếp nhận.")
+                    .type(NotificationType.NEW_BOOKING)
+                    .referenceCode("NV-1002")
+                    .isRead(true)
+                    .build());
+            notifications.add(Notification.builder()
+                    .recipientType(NotificationRecipientType.CUSTOMER)
+                    .recipientId(cus.getCustomerId())
+                    .title("✅ Xác nhận lịch hẹn!")
+                    .content("Lịch hẹn NV-1002 của bạn đã được Admin xác nhận. Vui lòng đến đúng giờ!")
+                    .type(NotificationType.BOOKING_CONFIRMED)
+                    .referenceCode("NV-1002")
+                    .isRead(false)
+                    .build());
+        });
+
+        // Staff / Admin notifications (ALL_STAFF)
+        notifications.add(Notification.builder()
+                .recipientType(NotificationRecipientType.ALL_STAFF)
+                .title("🎉 Đơn đặt lịch mới!")
+                .content("Khách Trần Văn An đặt khung 08:00 - 09:00 ngày hôm nay (Biển số: 29A-12345)")
+                .type(NotificationType.NEW_BOOKING)
+                .referenceCode("NV-1001")
+                .isRead(false)
+                .build());
+        notifications.add(Notification.builder()
+                .recipientType(NotificationRecipientType.ALL_STAFF)
+                .title("🎉 Đơn đặt lịch mới!")
+                .content("Khách Lê Thị Mai đặt khung 09:00 - 10:00 ngày hôm nay (Biển số: 51B-67890)")
+                .type(NotificationType.NEW_BOOKING)
+                .referenceCode("NV-1002")
+                .isRead(false)
+                .build());
+        notifications.add(Notification.builder()
+                .recipientType(NotificationRecipientType.ALL_STAFF)
+                .title("⚠️ Khách hàng hủy lịch hẹn!")
+                .content("Khách Nguyễn Hoàng Yến đã hủy lịch hẹn NV-1004 cho khung giờ 14:00 - 15:00 ngày mai.")
+                .type(NotificationType.BOOKING_CANCELLED)
+                .referenceCode("NV-1004")
+                .isRead(true)
+                .build());
+
+        notificationRepository.saveAll(notifications);
+    }
 
 
     private record DemoVehicleSeed(

@@ -1,13 +1,18 @@
 package com.autowashpro.autowashpro_be.modules.customer.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "Hồ sơ khách hàng — dùng cho customer dashboard")
 public class CustomerProfileResponse {
 
@@ -20,8 +25,14 @@ public class CustomerProfileResponse {
     @Schema(description = "Họ tên", example = "Nguyen Van A")
     private String fullName;
 
-    @Schema(description = "Hạng thành viên", example = "REGULAR")
+    @Schema(description = "Hạng thành viên hệ thống", example = "REGULAR")
     private String tierName;
+
+    @Schema(description = "Tên hạng hiển thị trên App (Member, Silver, Gold, Platinum)", example = "Member")
+    private String tierDisplayName;
+
+    @Schema(description = "Số ngày tối đa được đặt trước theo hạng VIP", example = "7")
+    private Integer bookingWindowDays;
 
     @Schema(description = "Số lần ghé trạm", example = "5")
     private Integer visitCount;
@@ -31,4 +42,7 @@ public class CustomerProfileResponse {
 
     @Schema(description = "Điểm tích lũy hiện tại", example = "150")
     private Integer loyaltyPoints;
+
+    @Schema(description = "Danh sách xe trong Garage cá nhân")
+    private List<VehicleResponse> vehicles;
 }
