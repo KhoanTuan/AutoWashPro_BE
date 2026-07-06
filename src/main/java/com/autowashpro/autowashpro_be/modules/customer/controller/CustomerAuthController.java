@@ -174,18 +174,6 @@ public class CustomerAuthController {
         return ResponseEntity.ok(customerAuthService.verifyEmail(token));
     }
 
-    @PostMapping("/email/login")
-    @SecurityRequirements
-    @Operation(
-            operationId = "01-10-email-login",
-            summary = "[PUBLIC] Đăng nhập bằng email",
-            description = "Đã gộp vào Omni-Login (`POST /api/v1/auth/login`). Endpoint này giữ tương thích ngược."
-    )
-    public ResponseEntity<CustomerAuthResponse> loginWithEmail(
-            @Valid @RequestBody CustomerEmailLoginRequest request
-    ) {
-        return ResponseEntity.ok(customerAuthService.loginWithEmail(request));
-    }
 
     @PostMapping("/email/forgot-password")
     @SecurityRequirements
@@ -215,23 +203,5 @@ public class CustomerAuthController {
         customerAuthService.resetPasswordByToken(request);
         return ResponseEntity.ok(MessageResponse.of(
                 "Password reset successfully. Please login with your new password."));
-    }
-
-    @PostMapping("/email/claim")
-    @SecurityRequirements
-    @Operation(
-            operationId = "01-13-email-claim-account",
-            summary = "[PUBLIC] Kích hoạt tài khoản được tạo lúc booking",
-            description = "FE route: `/claim-account?token=...` — khách (được admin/manager tạo khi đặt lịch) "
-                    + "đặt mật khẩu lần đầu và kích hoạt tài khoản (`PENDING_ACTIVATION` → `ACTIVE`)."
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Kích hoạt thành công, có thể đăng nhập bằng email"),
-            @ApiResponse(responseCode = "400", description = "Token sai/hết hạn/đã dùng hoặc mật khẩu không khớp")
-    })
-    public ResponseEntity<VerifyEmailTokenResponse> claimAccount(
-            @Valid @RequestBody CustomerClaimAccountRequest request
-    ) {
-        return ResponseEntity.ok(customerAuthService.claimAccount(request));
     }
 }

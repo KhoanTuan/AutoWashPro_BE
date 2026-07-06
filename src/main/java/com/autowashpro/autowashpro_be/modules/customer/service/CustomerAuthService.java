@@ -257,27 +257,6 @@ public class CustomerAuthService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
-    public CustomerAuthResponse loginWithEmail(CustomerEmailLoginRequest request) {
-        String email = MailService.normalizeEmail(request.getEmail());
-
-        Customer customer = customerRepository.findByEmail(email)
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
-
-        if (customer.getAuthProvider() != CustomerAuthProvider.EMAIL) {
-            throw new BadRequestException("This account uses phone login. Please sign in with your phone number.");
-        }
-
-        if (customer.getStatus() != CustomerStatus.ACTIVE) {
-            throw new BadRequestException("Account not activated. Please verify your email first.");
-        }
-
-        if (!passwordEncoder.matches(request.getPassword(), customer.getPasswordHash())) {
-            throw new BadCredentialsException("Invalid email or password");
-        }
-
-        return buildAuthResponse(customer);
-    }
 
     @Transactional
     public void requestPasswordResetByEmail(String email) {
@@ -310,31 +289,6 @@ public class CustomerAuthService {
         securityTokenService.markUsed(securityToken);
     }
 
-    /**
-     * Khách (được tạo lúc admin/manager đặt booking) claim tài khoản qua link email:
-     * đặt mật khẩu + kích hoạt (PENDING_ACTIVATION → ACTIVE) để có thể đăng nhập bằng email.
-     */
-    @Transactional
-    public VerifyEmailTokenResponse claimAccount(CustomerClaimAccountRequest request) {
-        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BadRequestException("Password and confirm password do not match");
-        }
-
-        SecurityToken securityToken = securityTokenService.requireValidToken(
-                request.getToken(), SecurityTokenType.ACCOUNT_CLAIM);
-
-        Customer customer = securityToken.getCustomer();
-        customer.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
-        customer.setAuthProvider(CustomerAuthProvider.EMAIL);
-        customer.setStatus(CustomerStatus.ACTIVE);
-        customerRepository.save(customer);
-        securityTokenService.markUsed(securityToken);
-
-        return VerifyEmailTokenResponse.builder()
-                .success(true)
-                .message("Account activated successfully. You can now login with your email.")
-                .build();
-    }
 
     @Transactional(readOnly = true)
     public ForgotPasswordResponse forgotPassword(CustomerForgotPasswordRequest request) {
