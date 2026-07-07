@@ -18,4 +18,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findAllByCustomerCustomerIdOrderByCreatedAtDesc(Long customerId);
     Optional<Booking> findByBookingCode(String bookingCode);
     boolean existsByBookingCode(String bookingCode);
+    List<Booking> findAllByTimeSlotSlotIdAndBookingDateGreaterThanEqualAndStatusIn(Long slotId, LocalDate fromDate, Collection<BookingStatus> statuses);
 }

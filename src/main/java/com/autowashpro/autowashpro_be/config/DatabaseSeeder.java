@@ -332,7 +332,14 @@ public class DatabaseSeeder implements CommandLineRunner {
 
 
     private void seedDemoBookings() {
-        if (bookingRepository.count() > 0) return;
+        if (bookingRepository.count() > 0) {
+            LocalDate today = LocalDate.now();
+            bookingRepository.findByBookingCode("NV-1001").ifPresent(b -> { if (!today.equals(b.getBookingDate())) { b.setBookingDate(today); bookingRepository.save(b); } });
+            bookingRepository.findByBookingCode("NV-1002").ifPresent(b -> { if (!today.equals(b.getBookingDate()) || b.getStatus() != BookingStatus.COMPLETED) { b.setBookingDate(today); b.setStatus(BookingStatus.COMPLETED); b.setPaymentStatus(PaymentStatus.PAID); bookingRepository.save(b); } });
+            bookingRepository.findByBookingCode("NV-1003").ifPresent(b -> { if (!today.equals(b.getBookingDate())) { b.setBookingDate(today); bookingRepository.save(b); } });
+            bookingRepository.findByBookingCode("NV-1004").ifPresent(b -> { if (!today.plusDays(1).equals(b.getBookingDate())) { b.setBookingDate(today.plusDays(1)); bookingRepository.save(b); } });
+            return;
+        }
 
         List<ServiceCatalog> allServices = serviceCatalogRepository.findAll();
         List<TimeSlot> allSlots = timeSlotRepository.findAll();
@@ -379,8 +386,8 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .model("Yamaha Grande")
                     .bookingDate(today)
                     .timeSlot(slot9_10)
-                    .status(BookingStatus.CONFIRMED)
-                    .paymentStatus(PaymentStatus.UNPAID)
+                    .status(BookingStatus.COMPLETED)
+                    .paymentStatus(PaymentStatus.PAID)
                     .totalEstimatedAmount(pkgDeluxe.getPrice())
                     .notes("Khách hẹn đến đúng giờ")
                     .build();
