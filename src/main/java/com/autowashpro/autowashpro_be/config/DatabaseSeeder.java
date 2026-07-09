@@ -7,6 +7,8 @@ import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogR
 import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
 import com.autowashpro.autowashpro_be.modules.notification.entity.*;
 import com.autowashpro.autowashpro_be.modules.notification.repository.NotificationRepository;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.*;
+import com.autowashpro.autowashpro_be.modules.marketing.repository.*;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerAuthProvider;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
@@ -51,6 +53,9 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final TimeSlotRepository timeSlotRepository;
     private final BookingRepository bookingRepository;
     private final NotificationRepository notificationRepository;
+    private final PromotionRepository promotionRepository;
+    private final CustomerPromotionRepository customerPromotionRepository;
+    private final CustomerFeedbackRepository customerFeedbackRepository;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -132,9 +137,10 @@ public class DatabaseSeeder implements CommandLineRunner {
         seedTimeSlots();
         seedDemoBookings();
         seedDemoNotifications();
+        seedDemoPromotionsAndFeedbacks();
         log.info("Demo staff ready — admin/Admin@123, manager/Manager@123, cashier/Cashier@123");
         log.info("Demo customers ready — password Customer@123");
-        log.info("Demo service catalog, time slots, bookings & notifications seeded successfully for E2E-1!");
+        log.info("Demo service catalog, time slots, bookings, notifications, promotions & feedbacks seeded successfully for E2E-1 & E2E-3!");
     }
 
     private Role ensureRole(String roleName, String description, Collection<Permission> permissions) {
@@ -226,14 +232,21 @@ public class DatabaseSeeder implements CommandLineRunner {
         loyaltyTierRepository.findAll().forEach(t -> tiers.put(t.getTierName(), t));
 
         List<DemoCustomerSeed> seeds = List.of(
-                new DemoCustomerSeed("annguyen", "Nguyen Van An", "0902000001", "an.nguyen@email.com", "REGULAR", CustomerStatus.ACTIVE, 12, 2400000, 850),
-                new DemoCustomerSeed("binhtran", "Tran Thi Binh", "0902000002", "binh.tran@email.com", "SILVER", CustomerStatus.ACTIVE, 28, 5200000, 2100),
-                new DemoCustomerSeed("cuongle", "Le Minh Cuong", "0902000003", "cuong.le@email.com", "GOLD", CustomerStatus.ACTIVE, 45, 9800000, 4800),
-                new DemoCustomerSeed("dungpham", "Pham Thi Dung", "0902000004", "dung.pham@email.com", "PLATINUM", CustomerStatus.ACTIVE, 62, 15200000, 9200),
-                new DemoCustomerSeed("emhoang", "Hoang Van Em", "0902000005", "em.hoang@email.com", "REGULAR", CustomerStatus.ACTIVE, 5, 650000, 120),
-                new DemoCustomerSeed("phuongvo", "Vo Thi Phuong", "0902000006", "phuong.vo@email.com", "SILVER", CustomerStatus.INACTIVE, 18, 3100000, 900),
-                new DemoCustomerSeed("giangdang", "Dang Quoc Giang", "0902000007", "giang.dang@email.com", "REGULAR", CustomerStatus.ACTIVE, 2, 180000, 40),
-                new DemoCustomerSeed("hoabui", "Bui Thi Hoa", "0902000008", "hoa.bui@email.com", "GOLD", CustomerStatus.ACTIVE, 35, 7200000, 3500)
+                new DemoCustomerSeed("annguyen", "Nguyen Van An", "0902000001", "an.nguyen@email.com", "REGULAR", CustomerStatus.ACTIVE, 12, 2400000, 850, 3),
+                new DemoCustomerSeed("binhtran", "Tran Thi Binh", "0902000002", "binh.tran@email.com", "SILVER", CustomerStatus.ACTIVE, 28, 5200000, 2100, 5),
+                new DemoCustomerSeed("cuongle", "Le Minh Cuong", "0902000003", "cuong.le@email.com", "GOLD", CustomerStatus.ACTIVE, 45, 9800000, 4800, 2),
+                new DemoCustomerSeed("dungpham", "Pham Thi Dung", "0902000004", "dung.pham@email.com", "PLATINUM", CustomerStatus.ACTIVE, 62, 15200000, 9200, 1),
+                new DemoCustomerSeed("emhoang", "Hoang Van Em", "0902000005", "em.hoang@email.com", "REGULAR", CustomerStatus.ACTIVE, 5, 650000, 120, 15),
+                new DemoCustomerSeed("phuongvo", "Vo Thi Phuong", "0902000006", "phuong.vo@email.com", "SILVER", CustomerStatus.INACTIVE, 18, 3100000, 900, 25),
+                new DemoCustomerSeed("giangdang", "Dang Quoc Giang", "0902000007", "giang.dang@email.com", "REGULAR", CustomerStatus.ACTIVE, 2, 180000, 40, 45),
+                new DemoCustomerSeed("hoabui", "Bui Thi Hoa", "0902000008", "hoa.bui@email.com", "GOLD", CustomerStatus.ACTIVE, 35, 7200000, 3500, 8),
+                new DemoCustomerSeed("khanhnguyen", "Nguyen Van Khanh", "0902000009", "khanh.nguyen@email.com", "PLATINUM", CustomerStatus.ACTIVE, 50, 12000000, 6000, 35),
+                new DemoCustomerSeed("lamtran", "Tran Van Lam", "0902000010", "lam.tran@email.com", "REGULAR", CustomerStatus.ACTIVE, 8, 1100000, 300, 50),
+                new DemoCustomerSeed("maile", "Le Thi Mai", "0902000011", "mai.le@email.com", "SILVER", CustomerStatus.ACTIVE, 20, 4200000, 1800, 12),
+                new DemoCustomerSeed("nampham", "Pham Hoang Nam", "0902000012", "nam.pham@email.com", "GOLD", CustomerStatus.ACTIVE, 40, 8500000, 4200, 60),
+                new DemoCustomerSeed("oanhtran", "Tran Thi Oanh", "0902000013", "oanh.tran@email.com", "REGULAR", CustomerStatus.ACTIVE, 1, 50000, 10, 95),
+                new DemoCustomerSeed("phucle", "Le Huu Phuc", "0902000014", "phuc.le@email.com", "SILVER", CustomerStatus.ACTIVE, 15, 2800000, 1100, 4),
+                new DemoCustomerSeed("quynhnguyen", "Nguyen Thi Quynh", "0902000015", "quynh.nguyen@email.com", "GOLD", CustomerStatus.ACTIVE, 31, 6800000, 3100, 18)
         );
 
         for (DemoCustomerSeed seed : seeds) {
@@ -257,7 +270,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                 .visitCount(seed.visits())
                 .totalSpending(new BigDecimal(seed.spending()))
                 .loyaltyPoints(seed.points())
-                .lastCompletedBookingAt(seed.visits() > 0 ? LocalDateTime.now().minusDays(3) : null)
+                .lastCompletedBookingAt(seed.visits() > 0 ? LocalDateTime.now().minusDays(seed.lastVisitDaysAgo()) : null)
                 .build());
     }
 
@@ -272,6 +285,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         customer.setVisitCount(seed.visits());
         customer.setTotalSpending(new BigDecimal(seed.spending()));
         customer.setLoyaltyPoints(seed.points());
+        customer.setLastCompletedBookingAt(seed.visits() > 0 ? LocalDateTime.now().minusDays(seed.lastVisitDaysAgo()) : null);
         customerRepository.save(customer);
     }
 
@@ -283,7 +297,14 @@ public class DatabaseSeeder implements CommandLineRunner {
             new DemoVehicleSeed("0902000005", "59E-77889", "Honda Vision"),
             new DemoVehicleSeed("0902000006", "77F-99001", "Yamaha NVX 155"),
             new DemoVehicleSeed("0902000007", "92G-22334", "Honda SH Mode"),
-            new DemoVehicleSeed("0902000008", "61H-55667", "Honda Lead")
+            new DemoVehicleSeed("0902000008", "61H-55667", "Honda Lead"),
+            new DemoVehicleSeed("0902000009", "29K-99999", "Honda SH 350i"),
+            new DemoVehicleSeed("0902000010", "30M-88888", "Yamaha Sirius"),
+            new DemoVehicleSeed("0902000011", "59N-77777", "Vespa LX 125"),
+            new DemoVehicleSeed("0902000012", "43P-66666", "Suzuki Raider 150"),
+            new DemoVehicleSeed("0902000013", "36Q-55555", "Honda Wave Alpha"),
+            new DemoVehicleSeed("0902000014", "75R-44444", "Yamaha Grande"),
+            new DemoVehicleSeed("0902000015", "86S-33333", "Honda PCX 160")
     );
 
     private void seedDemoVehicles() {
@@ -349,87 +370,65 @@ public class DatabaseSeeder implements CommandLineRunner {
         ServiceCatalog pkgDeluxe = allServices.stream().filter(s -> "PKG-DELUXE".equals(s.getServiceCode())).findFirst().orElse(allServices.get(0));
         ServiceCatalog pkgUltimate = allServices.stream().filter(s -> "PKG-ULTIMATE".equals(s.getServiceCode())).findFirst().orElse(allServices.get(0));
         ServiceCatalog addHelmet = allServices.stream().filter(s -> "ADD-HELMET".equals(s.getServiceCode())).findFirst().orElse(null);
+        ServiceCatalog addChain = allServices.stream().filter(s -> "ADD-CHAIN".equals(s.getServiceCode())).findFirst().orElse(null);
 
         TimeSlot slot8_9 = allSlots.stream().filter(s -> s.getDisplayOrder() == 1).findFirst().orElse(allSlots.get(0));
         TimeSlot slot9_10 = allSlots.stream().filter(s -> s.getDisplayOrder() == 2).findFirst().orElse(allSlots.get(0));
         TimeSlot slot10_11 = allSlots.stream().filter(s -> s.getDisplayOrder() == 3).findFirst().orElse(allSlots.get(0));
         TimeSlot slot14_15 = allSlots.stream().filter(s -> s.getDisplayOrder() == 4).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot15_16 = allSlots.stream().filter(s -> s.getDisplayOrder() == 5).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot16_17 = allSlots.stream().filter(s -> s.getDisplayOrder() == 6).findFirst().orElse(allSlots.get(0));
 
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(1);
 
-        // Booking 1: Customer 0902000001 (Tran Van An), Slot 8-9 today, PKG-STD + ADD-HELMET, PENDING
-        customerRepository.findByPhoneNumber("0902000001").ifPresent(cus -> {
-            Booking b1 = Booking.builder()
-                    .bookingCode("NV-1001")
-                    .customer(cus)
-                    .licensePlate("29A-12345")
-                    .model("Honda SH 150i")
-                    .bookingDate(today)
-                    .timeSlot(slot8_9)
-                    .status(BookingStatus.PENDING)
-                    .paymentStatus(PaymentStatus.UNPAID)
-                    .totalEstimatedAmount(pkgStd.getPrice().add(addHelmet != null ? addHelmet.getPrice() : BigDecimal.ZERO))
-                    .notes("Khách dặn rửa kỹ lốp xe")
-                    .build();
-            b1.addItem(createBookingItem(pkgStd));
-            if (addHelmet != null) b1.addItem(createBookingItem(addHelmet));
-            bookingRepository.save(b1);
-        });
+        List<BookingSeedInfo> bookingSeeds = List.of(
+            new BookingSeedInfo("NV-1001", "0902000001", "51A-12345", "Honda SH 150i", today, slot8_9, BookingStatus.PENDING, PaymentStatus.UNPAID, List.of(pkgStd, addHelmet), "Khách dặn rửa kỹ lốp xe"),
+            new BookingSeedInfo("NV-1002", "0902000002", "51B-67890", "Yamaha Exciter 150", today, slot9_10, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgDeluxe), "Khách hẹn đến đúng giờ"),
+            new BookingSeedInfo("NV-1003", "0902000003", "30C-11223", "Vespa GTS 300", today, slot10_11, BookingStatus.IN_PROGRESS, PaymentStatus.PAID, List.of(pkgUltimate), "Đang rửa chi tiết"),
+            new BookingSeedInfo("NV-1004", "0902000004", "43D-44556", "Honda Air Blade", tomorrow, slot14_15, BookingStatus.CANCELLED_BY_CUSTOMER, PaymentStatus.UNPAID, List.of(pkgDeluxe), "Khách bận đột xuất nên hủy"),
+            new BookingSeedInfo("NV-1005", "0902000002", "51B-67890", "Yamaha Exciter 150", today.minusDays(3), slot9_10, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgDeluxe, addChain), "Khách quen trạm"),
+            new BookingSeedInfo("NV-1006", "0902000003", "30C-11223", "Vespa GTS 300", today.minusDays(5), slot10_11, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgUltimate), "Khách đánh giá gầm dơ"),
+            new BookingSeedInfo("NV-1007", "0902000004", "43D-44556", "Honda Air Blade", today.minusDays(1), slot8_9, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgDeluxe, addHelmet), "Rất sạch sẽ"),
+            new BookingSeedInfo("NV-1008", "0902000005", "59E-77889", "Honda Vision", today.minusDays(15), slot14_15, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgStd), "Khách hài lòng"),
+            new BookingSeedInfo("NV-1009", "0902000006", "77F-99001", "Yamaha NVX 155", today.minusDays(25), slot15_16, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgDeluxe), "Bình thường"),
+            new BookingSeedInfo("NV-1010", "0902000008", "61H-55667", "Honda Lead", today.minusDays(8), slot16_17, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgStd), "Nhanh chóng"),
+            new BookingSeedInfo("NV-1011", "0902000011", "75R-44444", "Yamaha Grande", today.minusDays(12), slot9_10, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgDeluxe), "Dịch vụ ổn"),
+            new BookingSeedInfo("NV-1012", "0902000012", "86S-33333", "Honda PCX 160", today.minusDays(4), slot10_11, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgUltimate, addChain), "Sạch đẹp"),
+            new BookingSeedInfo("NV-1013", "0902000013", "36Q-55555", "Honda Wave Alpha", today, slot15_16, BookingStatus.CONFIRMED, PaymentStatus.UNPAID, List.of(pkgStd), "Đợi rửa"),
+            new BookingSeedInfo("NV-1014", "0902000014", "75R-44444", "Yamaha Grande", tomorrow, slot8_9, BookingStatus.PENDING, PaymentStatus.UNPAID, List.of(pkgDeluxe), "Đã cọc"),
+            new BookingSeedInfo("NV-1015", "0902000015", "86S-33333", "Honda PCX 160", today.minusDays(18), slot14_15, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgUltimate), "Tốt")
+        );
 
-        // Booking 2: Customer 0902000002 (Le Thi Mai), Slot 9-10 today, PKG-DELUXE, CONFIRMED
-        customerRepository.findByPhoneNumber("0902000002").ifPresent(cus -> {
-            Booking b2 = Booking.builder()
-                    .bookingCode("NV-1002")
-                    .customer(cus)
-                    .licensePlate("51B-67890")
-                    .model("Yamaha Grande")
-                    .bookingDate(today)
-                    .timeSlot(slot9_10)
-                    .status(BookingStatus.COMPLETED)
-                    .paymentStatus(PaymentStatus.PAID)
-                    .totalEstimatedAmount(pkgDeluxe.getPrice())
-                    .notes("Khách hẹn đến đúng giờ")
-                    .build();
-            b2.addItem(createBookingItem(pkgDeluxe));
-            bookingRepository.save(b2);
-        });
+        for (BookingSeedInfo seed : bookingSeeds) {
+            customerRepository.findByPhoneNumber(seed.phone()).ifPresent(cus -> {
+                BigDecimal totalAmount = BigDecimal.ZERO;
+                for (ServiceCatalog sc : seed.services()) {
+                    if (sc != null) {
+                        totalAmount = totalAmount.add(sc.getPrice());
+                    }
+                }
+                Booking b = Booking.builder()
+                        .bookingCode(seed.code())
+                        .customer(cus)
+                        .licensePlate(seed.licensePlate())
+                        .model(seed.model())
+                        .bookingDate(seed.date())
+                        .timeSlot(seed.slot())
+                        .status(seed.status())
+                        .paymentStatus(seed.paymentStatus())
+                        .totalEstimatedAmount(totalAmount)
+                        .notes(seed.notes())
+                        .build();
 
-        // Booking 3: Customer 0902000003 (Pham Huu Tho), Slot 10-11 today, PKG-ULTIMATE, IN_PROGRESS
-        customerRepository.findByPhoneNumber("0902000003").ifPresent(cus -> {
-            Booking b3 = Booking.builder()
-                    .bookingCode("NV-1003")
-                    .customer(cus)
-                    .licensePlate("43C-11223")
-                    .model("Vespa Sprint")
-                    .bookingDate(today)
-                    .timeSlot(slot10_11)
-                    .status(BookingStatus.IN_PROGRESS)
-                    .paymentStatus(PaymentStatus.PAID)
-                    .totalEstimatedAmount(pkgUltimate.getPrice())
-                    .notes("Đang rửa chi tiết")
-                    .build();
-            b3.addItem(createBookingItem(pkgUltimate));
-            bookingRepository.save(b3);
-        });
-
-        // Booking 4: Customer 0902000004 (Nguyen Hoang Yen), Slot 14-15 tomorrow, PKG-DELUXE, CANCELLED_BY_CUSTOMER
-        customerRepository.findByPhoneNumber("0902000004").ifPresent(cus -> {
-            Booking b4 = Booking.builder()
-                    .bookingCode("NV-1004")
-                    .customer(cus)
-                    .licensePlate("30D-44556")
-                    .model("Honda Vision")
-                    .bookingDate(tomorrow)
-                    .timeSlot(slot14_15)
-                    .status(BookingStatus.CANCELLED_BY_CUSTOMER)
-                    .paymentStatus(PaymentStatus.UNPAID)
-                    .totalEstimatedAmount(pkgDeluxe.getPrice())
-                    .notes("Khách bận đột xuất nên hủy")
-                    .build();
-            b4.addItem(createBookingItem(pkgDeluxe));
-            bookingRepository.save(b4);
-        });
+                for (ServiceCatalog sc : seed.services()) {
+                    if (sc != null) {
+                        b.addItem(createBookingItem(sc));
+                    }
+                }
+                bookingRepository.save(b);
+            });
+        }
     }
 
     private BookingItem createBookingItem(ServiceCatalog sc) {
@@ -520,6 +519,352 @@ public class DatabaseSeeder implements CommandLineRunner {
         notificationRepository.saveAll(notifications);
     }
 
+    private void seedDemoPromotionsAndFeedbacks() {
+        if (promotionRepository.count() == 0) {
+            log.info("Seeding demo promotions for E2E-3...");
+            List<Promotion> promotions = List.of(
+                    Promotion.builder()
+                            .code("WELCOME50")
+                            .name("Quà chào mừng thành viên mới")
+                            .description("Giảm 10% cho đơn rửa xe đầu tiên")
+                            .discountType(DiscountType.PERCENTAGE)
+                            .value(BigDecimal.valueOf(10))
+                            .costPoints(0)
+                            .minTier("Member")
+                            .minRecencyDays(0)
+                            .totalBudget(1000)
+                            .issuedCount(15)
+                            .redeemedCount(8)
+                            .startDate(LocalDateTime.now().minusDays(10))
+                            .endDate(LocalDateTime.now().plusMonths(3))
+                            .status(PromotionStatus.ACTIVE)
+                            .build(),
+                    Promotion.builder()
+                            .code("SUMMER24")
+                            .name("Voucher Mùa Hè Rực Rỡ")
+                            .description("Giảm giá 50.000đ cho tất cả dịch vụ rửa xe và chăm sóc chi tiết")
+                            .discountType(DiscountType.FIXED_AMOUNT)
+                            .value(BigDecimal.valueOf(50000))
+                            .costPoints(0)
+                            .minTier("Gold")
+                            .minRecencyDays(0)
+                            .totalBudget(500)
+                            .issuedCount(120)
+                            .redeemedCount(85)
+                            .startDate(LocalDateTime.now().minusDays(5))
+                            .endDate(LocalDateTime.now().plusMonths(1))
+                            .status(PromotionStatus.ACTIVE)
+                            .build(),
+                    Promotion.builder()
+                            .code("FREEWASH")
+                            .name("Tri ân khách hàng Kim Cương")
+                            .description("Rửa xe toàn diện miễn phí 100% dành cho thành viên Platinum")
+                            .discountType(DiscountType.FREE_SERVICE)
+                            .value(BigDecimal.valueOf(100000))
+                            .costPoints(0)
+                            .minTier("Platinum")
+                            .minRecencyDays(0)
+                            .totalBudget(100)
+                            .issuedCount(25)
+                            .redeemedCount(20)
+                            .startDate(LocalDateTime.now().minusDays(15))
+                            .endDate(LocalDateTime.now().plusMonths(2))
+                            .status(PromotionStatus.ACTIVE)
+                            .build(),
+                    Promotion.builder()
+                            .code("VOUCHER_50K")
+                            .name("Voucher Giảm Giá 50k đổi điểm")
+                            .description("Áp dụng giảm trực tiếp cho mọi hóa đơn đặt lịch rửa xe hoặc dịch vụ phụ trợ.")
+                            .discountType(DiscountType.FIXED_AMOUNT)
+                            .value(BigDecimal.valueOf(50000))
+                            .costPoints(450)
+                            .minTier("Member")
+                            .minRecencyDays(0)
+                            .totalBudget(2000)
+                            .issuedCount(310)
+                            .redeemedCount(190)
+                            .startDate(LocalDateTime.now().minusDays(30))
+                            .endDate(LocalDateTime.now().plusMonths(6))
+                            .status(PromotionStatus.ACTIVE)
+                            .build(),
+                    Promotion.builder()
+                            .code("VOUCHER_FREE")
+                            .name("Voucher Rửa Xe Miễn Phí (Đổi Điểm)")
+                            .description("Đổi 1 lượt sử dụng gói rửa xe toàn diện hoàn toàn miễn phí.")
+                            .discountType(DiscountType.FREE_SERVICE)
+                            .value(BigDecimal.valueOf(100000))
+                            .costPoints(1000)
+                            .minTier("Member")
+                            .minRecencyDays(0)
+                            .totalBudget(500)
+                            .issuedCount(80)
+                            .redeemedCount(45)
+                            .startDate(LocalDateTime.now().minusDays(20))
+                            .endDate(LocalDateTime.now().plusMonths(6))
+                            .status(PromotionStatus.ACTIVE)
+                            .build(),
+                    Promotion.builder()
+                            .code("PAUSED_CAMPAIGN")
+                            .name("Chiến dịch tạm ngưng chạy thử")
+                            .description("Chiến dịch giảm giá 20k đang tạm ngưng.")
+                            .discountType(DiscountType.FIXED_AMOUNT)
+                            .value(BigDecimal.valueOf(20000))
+                            .costPoints(0)
+                            .minTier("Member")
+                            .minRecencyDays(0)
+                            .totalBudget(200)
+                            .issuedCount(10)
+                            .redeemedCount(2)
+                            .startDate(LocalDateTime.now().minusDays(5))
+                            .endDate(LocalDateTime.now().plusMonths(1))
+                            .status(PromotionStatus.PAUSED)
+                            .build(),
+                    Promotion.builder()
+                            .code("EXPIRED_CAMPAIGN")
+                            .name("Khuyến mãi hết hạn từ lâu")
+                            .description("Khuyến mãi giảm 15% mùa đông trước.")
+                            .discountType(DiscountType.PERCENTAGE)
+                            .value(BigDecimal.valueOf(15))
+                            .costPoints(0)
+                            .minTier("Member")
+                            .minRecencyDays(0)
+                            .totalBudget(100)
+                            .issuedCount(50)
+                            .redeemedCount(48)
+                            .startDate(LocalDateTime.now().minusMonths(6))
+                            .endDate(LocalDateTime.now().minusMonths(3))
+                            .status(PromotionStatus.EXPIRED)
+                            .build(),
+                    Promotion.builder()
+                            .code("COMPENSATE50")
+                            .name("Voucher Đền Bù Tạ Lỗi CSKH")
+                            .description("Voucher đền bù trải nghiệm dịch vụ chưa hài lòng.")
+                            .discountType(DiscountType.FIXED_AMOUNT)
+                            .value(BigDecimal.valueOf(50000))
+                            .costPoints(0)
+                            .minTier("Member")
+                            .minRecencyDays(0)
+                            .totalBudget(1000)
+                            .issuedCount(5)
+                            .redeemedCount(2)
+                            .startDate(LocalDateTime.now().minusDays(10))
+                            .endDate(LocalDateTime.now().plusMonths(3))
+                            .status(PromotionStatus.ACTIVE)
+                            .build(),
+                    Promotion.builder()
+                            .code("WINTER_COMBO")
+                            .name("Voucher Combo Mùa Đông")
+                            .description("Giảm giá 20% cho thành viên từ Silver trở lên.")
+                            .discountType(DiscountType.PERCENTAGE)
+                            .value(BigDecimal.valueOf(20))
+                            .costPoints(500)
+                            .minTier("Silver")
+                            .minRecencyDays(0)
+                            .totalBudget(300)
+                            .issuedCount(12)
+                            .redeemedCount(3)
+                            .startDate(LocalDateTime.now().minusDays(2))
+                            .endDate(LocalDateTime.now().plusMonths(2))
+                            .status(PromotionStatus.ACTIVE)
+                            .build(),
+                    Promotion.builder()
+                            .code("VIP_SPECIAL")
+                            .name("Quà tặng VIP vắng mặt lâu ngày")
+                            .description("Ưu đãi đặc biệt giảm 100k cho khách Platinum không đến trên 30 ngày.")
+                            .discountType(DiscountType.FIXED_AMOUNT)
+                            .value(BigDecimal.valueOf(100000))
+                            .costPoints(0)
+                            .minTier("Platinum")
+                            .minRecencyDays(30)
+                            .totalBudget(100)
+                            .issuedCount(1)
+                            .redeemedCount(0)
+                            .startDate(LocalDateTime.now().minusDays(3))
+                            .endDate(LocalDateTime.now().plusMonths(1))
+                            .status(PromotionStatus.ACTIVE)
+                            .build()
+            );
+            promotionRepository.saveAll(promotions);
+
+            // Seed Wallets for Customers
+            seedCustomerWallets();
+        }
+
+        if (customerFeedbackRepository.count() == 0) {
+            log.info("Seeding demo customer feedbacks for E2E-3...");
+            seedCustomerFeedbacks();
+            log.info("Seeded demo customer feedbacks successfully!");
+        }
+    }
+
+    private void seedCustomerWallets() {
+        Promotion pWelcome = promotionRepository.findByCode("WELCOME50").orElse(null);
+        Promotion p50k = promotionRepository.findByCode("VOUCHER_50K").orElse(null);
+        Promotion pSummer = promotionRepository.findByCode("SUMMER24").orElse(null);
+        Promotion pFree = promotionRepository.findByCode("VOUCHER_FREE").orElse(null);
+        Promotion pFreeWash = promotionRepository.findByCode("FREEWASH").orElse(null);
+        Promotion pVipSpecial = promotionRepository.findByCode("VIP_SPECIAL").orElse(null);
+
+        // Customer 1: Nguyen Van An
+        customerRepository.findByPhoneNumber("0902000001").ifPresent(c -> {
+            if (pWelcome != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(pWelcome).voucherCode("VOU-WELCOME-0001")
+                        .issuedAt(LocalDateTime.now().minusDays(2)).expiryDate(LocalDateTime.now().plusDays(12))
+                        .status(CustomerPromotionStatus.ISSUED).source(CustomerPromotionSource.CLAIM).build());
+            }
+            if (p50k != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(p50k).voucherCode("VOU-50K-0001")
+                        .issuedAt(LocalDateTime.now().minusDays(5)).expiryDate(LocalDateTime.now().plusDays(25))
+                        .status(CustomerPromotionStatus.ISSUED).source(CustomerPromotionSource.EXCHANGE).build());
+            }
+        });
+
+        // Customer 2: Tran Thi Binh
+        customerRepository.findByPhoneNumber("0902000002").ifPresent(c -> {
+            if (pSummer != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(pSummer).voucherCode("VOU-SUMMER-0002")
+                        .issuedAt(LocalDateTime.now().minusDays(4)).expiryDate(LocalDateTime.now().plusDays(10))
+                        .status(CustomerPromotionStatus.USED).source(CustomerPromotionSource.CLAIM).build());
+            }
+            if (p50k != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(p50k).voucherCode("VOU-50K-0002")
+                        .issuedAt(LocalDateTime.now().minusDays(1)).expiryDate(LocalDateTime.now().plusDays(29))
+                        .status(CustomerPromotionStatus.ISSUED).source(CustomerPromotionSource.EXCHANGE).build());
+            }
+        });
+
+        // Customer 3: Le Minh Cuong
+        customerRepository.findByPhoneNumber("0902000003").ifPresent(c -> {
+            if (pFree != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(pFree).voucherCode("VOU-FREE-0003")
+                        .issuedAt(LocalDateTime.now().minusDays(3)).expiryDate(LocalDateTime.now().plusDays(27))
+                        .status(CustomerPromotionStatus.ISSUED).source(CustomerPromotionSource.EXCHANGE).build());
+            }
+            if (pWelcome != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(pWelcome).voucherCode("VOU-WELCOME-0003")
+                        .issuedAt(LocalDateTime.now().minusDays(8)).expiryDate(LocalDateTime.now().plusDays(2))
+                        .status(CustomerPromotionStatus.USED).source(CustomerPromotionSource.CLAIM).build());
+            }
+        });
+
+        // Customer 4: Pham Thi Dung
+        customerRepository.findByPhoneNumber("0902000004").ifPresent(c -> {
+            if (pFreeWash != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(pFreeWash).voucherCode("VOU-FREEWASH-0004")
+                        .issuedAt(LocalDateTime.now().minusDays(1)).expiryDate(LocalDateTime.now().plusDays(14))
+                        .status(CustomerPromotionStatus.ISSUED).source(CustomerPromotionSource.CLAIM).build());
+            }
+            if (pSummer != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(pSummer).voucherCode("VOU-SUMMER-0004")
+                        .issuedAt(LocalDateTime.now().minusDays(2)).expiryDate(LocalDateTime.now().plusDays(12))
+                        .status(CustomerPromotionStatus.ISSUED).source(CustomerPromotionSource.CLAIM).build());
+            }
+            if (pWelcome != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(pWelcome).voucherCode("VOU-WELCOME-0004")
+                        .issuedAt(LocalDateTime.now().minusDays(15)).expiryDate(LocalDateTime.now().minusDays(5))
+                        .status(CustomerPromotionStatus.EXPIRED).source(CustomerPromotionSource.CLAIM).build());
+            }
+        });
+
+        // Customer 9: Nguyen Van Khanh
+        customerRepository.findByPhoneNumber("0902000009").ifPresent(c -> {
+            if (pVipSpecial != null) {
+                customerPromotionRepository.save(CustomerPromotion.builder()
+                        .customer(c).promotion(pVipSpecial).voucherCode("VOU-VIP-0009")
+                        .issuedAt(LocalDateTime.now().minusDays(3)).expiryDate(LocalDateTime.now().plusDays(27))
+                        .status(CustomerPromotionStatus.ISSUED).source(CustomerPromotionSource.GIFT_DIRECT).build());
+            }
+        });
+    }
+
+    private void seedCustomerFeedbacks() {
+        // Customer 1: Nguyen Van An
+        customerRepository.findByPhoneNumber("0902000001").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1002").serviceName("Gói Rửa xe máy cao cấp")
+                    .ratingStars(5).comment("Rửa rất sạch và chu đáo. Nhân viên thái độ tốt.")
+                    .createdAt(LocalDateTime.now().minusDays(3)).status(FeedbackStatus.RESOLVED)
+                    .resolutionNotes("AI Sentiment: Tích cực. Ghi nhận đánh giá tốt.").build());
+        });
+
+        // Customer 2: Tran Thi Binh
+        customerRepository.findByPhoneNumber("0902000002").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1005").serviceName("Gói Rửa xe máy cao cấp + Tẩy xích")
+                    .ratingStars(2).comment("Lau chưa sạch phần gầm xe, còn bám bẩn nhiều dưới chắn bùn.")
+                    .createdAt(LocalDateTime.now().minusDays(2)).status(FeedbackStatus.NEW).build());
+        });
+
+        // Customer 3: Le Minh Cuong
+        customerRepository.findByPhoneNumber("0902000003").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1006").serviceName("Gói Rửa xe máy siêu cấp")
+                    .ratingStars(1).comment("Đã đặt lịch hẹn lúc 10h mà tới nơi bắt đợi gần 40 phút. Trạm làm ăn tắc trách quá!")
+                    .createdAt(LocalDateTime.now().minusDays(5)).status(FeedbackStatus.NEW).build());
+        });
+
+        // Customer 4: Pham Thi Dung
+        customerRepository.findByPhoneNumber("0902000004").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1007").serviceName("Gói Rửa xe máy cao cấp")
+                    .ratingStars(5).comment("Gói Premium rửa siêu sạch, anh kỹ thuật viên còn bôi mỡ xích miễn phí hỗ trợ.")
+                    .createdAt(LocalDateTime.now().minusDays(1)).status(FeedbackStatus.RESOLVED)
+                    .resolutionNotes("AI Sentiment: Tích cực. Khách hàng thân thiết Platinum.").build());
+        });
+
+        // Customer 5: Hoang Van Em
+        customerRepository.findByPhoneNumber("0902000005").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1008").serviceName("Gói Rửa xe máy tiêu chuẩn")
+                    .ratingStars(3).comment("Rửa tạm ổn nhưng phòng chờ hôm nay nóng quá, máy lọc nước thì hết nước.")
+                    .createdAt(LocalDateTime.now().minusDays(15)).status(FeedbackStatus.NEW).build());
+        });
+
+        // Customer 6: Vo Thi Phuong
+        customerRepository.findByPhoneNumber("0902000006").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1009").serviceName("Gói Rửa xe máy cao cấp")
+                    .ratingStars(2).comment("Lần trước rửa xe nẹp cửa bên hông bị trầy xước nhẹ.")
+                    .createdAt(LocalDateTime.now().minusDays(25)).status(FeedbackStatus.RESOLVED)
+                    .resolutionNotes("Đã gọi điện xin lỗi và đền bù mã voucher giảm giá 50k. Khách đã vui vẻ đồng ý.").build());
+        });
+
+        // Customer 8: Bui Thi Hoa
+        customerRepository.findByPhoneNumber("0902000008").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1010").serviceName("Gói Rửa xe máy tiêu chuẩn")
+                    .ratingStars(4).comment("Dịch vụ tốt, rửa nhanh gọn lẹ.")
+                    .createdAt(LocalDateTime.now().minusDays(8)).status(FeedbackStatus.RESOLVED)
+                    .resolutionNotes("Đánh giá tốt từ khách hạng Gold.").build());
+        });
+
+        // Customer 11: Le Thi Mai
+        customerRepository.findByPhoneNumber("0902000011").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1011").serviceName("Gói Rửa xe máy cao cấp")
+                    .ratingStars(1).comment("Vệ sinh mũ bảo hiểm sấy nano xong vẫn còn mùi ẩm hôi, chưa sấy khô hoàn toàn.")
+                    .createdAt(LocalDateTime.now().minusDays(12)).status(FeedbackStatus.NEW).build());
+        });
+
+        // Customer 12: Pham Hoang Nam
+        customerRepository.findByPhoneNumber("0902000012").ifPresent(c -> {
+            customerFeedbackRepository.save(CustomerFeedback.builder()
+                    .customer(c).bookingId("NV-1012").serviceName("Gói Rửa xe máy siêu cấp")
+                    .ratingStars(5).comment("Rửa siêu sạch, dưỡng nhựa nhám và lốp rất đều tay, xe đi như mới.")
+                    .createdAt(LocalDateTime.now().minusDays(4)).status(FeedbackStatus.RESOLVED)
+                    .resolutionNotes("Phản hồi rất tốt. Khách hàng thân thiết Gold.").build());
+        });
+    }
+
 
     private record DemoVehicleSeed(
             String phone,
@@ -536,7 +881,21 @@ public class DatabaseSeeder implements CommandLineRunner {
             CustomerStatus status,
             int visits,
             long spending,
-            int points
+            int points,
+            int lastVisitDaysAgo
+    ) {}
+
+    private record BookingSeedInfo(
+            String code,
+            String phone,
+            String licensePlate,
+            String model,
+            LocalDate date,
+            TimeSlot slot,
+            BookingStatus status,
+            PaymentStatus paymentStatus,
+            List<ServiceCatalog> services,
+            String notes
     ) {}
 
     private record DemoStaffSeed(

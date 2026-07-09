@@ -43,4 +43,7 @@ public class CreateBookingRequest {
 
     @Schema(description = "Ghi chú đặc biệt cho kỹ thuật viên xưởng", example = "Rửa cẩn thận gầm xe và xịt khô xích")
     private String notes;
+
+    @Schema(description = "Mã voucher/khuyến mãi áp dụng từ ví của khách", example = "VOU-WELCOME50-8819")
+    private String voucherCode;
 }

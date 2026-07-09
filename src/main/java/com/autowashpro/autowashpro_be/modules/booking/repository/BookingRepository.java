@@ -3,6 +3,7 @@ package com.autowashpro.autowashpro_be.modules.booking.repository;
 import com.autowashpro.autowashpro_be.modules.booking.entity.Booking;
 import com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -19,4 +20,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Optional<Booking> findByBookingCode(String bookingCode);
     boolean existsByBookingCode(String bookingCode);
     List<Booking> findAllByTimeSlotSlotIdAndBookingDateGreaterThanEqualAndStatusIn(Long slotId, LocalDate fromDate, Collection<BookingStatus> statuses);
+
+    @Query("SELECT b FROM Booking b WHERE b.status = 'COMPLETED' AND b.voucherCode IS NOT NULL")
+    List<Booking> findCompletedBookingsWithVoucher();
 }

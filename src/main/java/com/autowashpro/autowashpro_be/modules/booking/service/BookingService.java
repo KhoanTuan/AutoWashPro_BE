@@ -18,11 +18,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.autowashpro.autowashpro_be.modules.notification.entity.NotificationType;
 import com.autowashpro.autowashpro_be.modules.notification.service.RealtimeNotificationService;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotion;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotionStatus;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.DiscountType;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.Promotion;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.PromotionStatus;
+import com.autowashpro.autowashpro_be.modules.marketing.repository.CustomerPromotionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -39,6 +46,7 @@ public class BookingService {
     private final GarageClosureRepository garageClosureRepository;
     private final VehicleRepository vehicleRepository;
     private final RealtimeNotificationService notificationService;
+    private final CustomerPromotionRepository customerPromotionRepository;
 
     private static final List<BookingStatus> ACTIVE_CAPACITY_STATUSES = Arrays.asList(
             BookingStatus.PENDING,
@@ -225,10 +233,56 @@ public class BookingService {
             }
         }
 
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (request.getVoucherCode() != null && !request.getVoucherCode().trim().isEmpty()) {
+            String code = request.getVoucherCode().trim();
+            CustomerPromotion customerPromotion = customerPromotionRepository.findByCustomerCustomerIdAndVoucherCode(
+                    customer.getCustomerId(), code)
+                    .orElseThrow(() -> new BadRequestException("Mã giảm giá '" + code + "' không tồn tại trong ví của bạn!"));
+
+            if (customerPromotion.getStatus() != CustomerPromotionStatus.ISSUED) {
+                throw new BadRequestException("Mã giảm giá '" + code + "' đã được sử dụng hoặc đã hết hạn!");
+            }
+
+            Promotion promotion = customerPromotion.getPromotion();
+            if (promotion.getStatus() != PromotionStatus.ACTIVE) {
+                throw new BadRequestException("Chiến dịch khuyến mãi cho mã này đã kết thúc hoặc tạm ngưng!");
+            }
+
+            if (promotion.getEndDate() != null && promotion.getEndDate().isBefore(LocalDateTime.now())) {
+                throw new BadRequestException("Mã giảm giá '" + code + "' đã quá hạn sử dụng!");
+            }
+
+            // Calculate discount
+            if (promotion.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+                discountAmount = promotion.getValue();
+                if (discountAmount.compareTo(totalAmount) > 0) {
+                    discountAmount = totalAmount;
+                }
+            } else if (promotion.getDiscountType() == DiscountType.PERCENTAGE) {
+                discountAmount = totalAmount.multiply(promotion.getValue()).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+            } else if (promotion.getDiscountType() == DiscountType.FREE_SERVICE) {
+                discountAmount = totalAmount;
+            }
+
+            booking.setVoucherCode(code);
+            booking.setDiscountAmount(discountAmount);
+
+            // Tạm thời đánh dấu đã dùng để khóa voucher tránh double claim
+            customerPromotion.setStatus(CustomerPromotionStatus.USED);
+            customerPromotionRepository.save(customerPromotion);
+
+            // Tăng số lượng đã được sử dụng thực tế của chiến dịch
+            promotion.setRedeemedCount((promotion.getRedeemedCount() != null ? promotion.getRedeemedCount() : 0) + 1);
+        }
+
         booking.setTotalEstimatedAmount(totalAmount);
+        booking.setFinalAmount(totalAmount.subtract(discountAmount));
+
         Booking savedBooking = bookingRepository.save(booking);
 
-        log.info("Created booking successfully: {} for license plate {}", savedBooking.getBookingCode(), savedBooking.getLicensePlate());
+        log.info("Created booking successfully: {} for license plate {}. Discount: {}, Final: {}", 
+                savedBooking.getBookingCode(), savedBooking.getLicensePlate(), savedBooking.getDiscountAmount(), savedBooking.getFinalAmount());
         notificationService.notifyNewBooking(savedBooking);
 
         return mapToResponse(savedBooking);
@@ -263,6 +317,20 @@ public class BookingService {
         }
 
         booking.setStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
+        
+        if (booking.getVoucherCode() != null) {
+            customerPromotionRepository.findByCustomerCustomerIdAndVoucherCode(customer.getCustomerId(), booking.getVoucherCode())
+                .ifPresent(cp -> {
+                    cp.setStatus(CustomerPromotionStatus.ISSUED);
+                    customerPromotionRepository.save(cp);
+                    
+                    Promotion promotion = cp.getPromotion();
+                    if (promotion != null && promotion.getRedeemedCount() != null && promotion.getRedeemedCount() > 0) {
+                        promotion.setRedeemedCount(promotion.getRedeemedCount() - 1);
+                    }
+                });
+        }
+
         Booking savedBooking = bookingRepository.save(booking);
         log.info("Booking cancelled by customer: {}", savedBooking.getBookingCode());
         notificationService.notifyBookingStatusChanged(savedBooking, NotificationType.BOOKING_CANCELLED, "Khách hàng hủy lịch hẹn", "Khách hàng " + savedBooking.getCustomer().getFullName() + " đã hủy lịch hẹn " + savedBooking.getBookingCode() + " cho khung giờ ngày " + savedBooking.getBookingDate());
@@ -320,6 +388,9 @@ public class BookingService {
                 .startTime(entity.getTimeSlot().getStartTime())
                 .endTime(entity.getTimeSlot().getEndTime())
                 .totalEstimatedAmount(entity.getTotalEstimatedAmount())
+                .voucherCode(entity.getVoucherCode())
+                .discountAmount(entity.getDiscountAmount())
+                .finalAmount(entity.getFinalAmount() != null ? entity.getFinalAmount() : entity.getTotalEstimatedAmount())
                 .status(entity.getStatus())
                 .paymentStatus(entity.getPaymentStatus())
                 .notes(entity.getNotes())

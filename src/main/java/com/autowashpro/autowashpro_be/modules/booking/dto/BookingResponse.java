@@ -28,6 +28,9 @@ public class BookingResponse {
     private LocalTime startTime;
     private LocalTime endTime;
     private BigDecimal totalEstimatedAmount;
+    private String voucherCode;
+    private BigDecimal discountAmount;
+    private BigDecimal finalAmount;
     private BookingStatus status;
     private PaymentStatus paymentStatus;
     private String notes;

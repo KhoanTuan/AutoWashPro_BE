@@ -60,6 +60,16 @@ public class Booking extends BaseEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "voucher_code", length = 100)
+    private String voucherCode;
+
+    @Builder.Default
+    @Column(name = "discount_amount", precision = 12, scale = 2)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "final_amount", precision = 12, scale = 2)
+    private BigDecimal finalAmount;
+
     @Builder.Default
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BookingItem> items = new ArrayList<>();
