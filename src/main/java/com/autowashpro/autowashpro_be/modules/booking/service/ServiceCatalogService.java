@@ -53,6 +53,16 @@ public class ServiceCatalogService {
         ServiceCatalog service = serviceCatalogRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service catalog not found with id: " + id));
 
+        boolean isSystemPackage = List.of("PKG-STD", "PKG-DELUXE", "PKG-ULTIMATE").contains(service.getServiceCode());
+        if (isSystemPackage) {
+            if (!service.getServiceCode().equals(request.getServiceCode())) {
+                throw new BadRequestException("Không thể thay đổi mã dịch vụ của gói hệ thống cốt lõi!");
+            }
+            if (request.getIsActive() != null && !request.getIsActive()) {
+                throw new BadRequestException("Không thể tắt hoạt động của gói dịch vụ hệ thống cốt lõi!");
+            }
+        }
+
         if (!service.getServiceCode().equals(request.getServiceCode()) &&
                 serviceCatalogRepository.existsByServiceCode(request.getServiceCode())) {
             throw new BadRequestException("Service code '" + request.getServiceCode() + "' already exists");
@@ -78,6 +88,10 @@ public class ServiceCatalogService {
     public ServiceCatalogResponse toggleStatus(Long id) {
         ServiceCatalog service = serviceCatalogRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service catalog not found with id: " + id));
+
+        if (List.of("PKG-STD", "PKG-DELUXE", "PKG-ULTIMATE").contains(service.getServiceCode())) {
+            throw new BadRequestException("Không thể tắt hoạt động của gói dịch vụ hệ thống cốt lõi!");
+        }
         service.setIsActive(!service.getIsActive());
         return mapToResponse(serviceCatalogRepository.save(service));
     }

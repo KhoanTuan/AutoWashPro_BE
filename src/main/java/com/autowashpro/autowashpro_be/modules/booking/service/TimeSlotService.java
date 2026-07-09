@@ -45,6 +45,8 @@ public class TimeSlotService {
             throw new BadRequestException("Start time must be before end time");
         }
 
+        validateNoOverlap(request.getStartTime(), request.getEndTime(), request.getDayOfWeek(), null);
+
         TimeSlot slot = TimeSlot.builder()
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
@@ -66,6 +68,8 @@ public class TimeSlotService {
         if (request.getStartTime().isAfter(request.getEndTime()) || request.getStartTime().equals(request.getEndTime())) {
             throw new BadRequestException("Start time must be before end time");
         }
+
+        validateNoOverlap(request.getStartTime(), request.getEndTime(), request.getDayOfWeek(), id);
 
         slot.setStartTime(request.getStartTime());
         slot.setEndTime(request.getEndTime());
@@ -118,6 +122,34 @@ public class TimeSlotService {
 
         slot.setIsActive(targetStatus);
         return mapToResponse(timeSlotRepository.save(slot));
+    }
+
+    private void validateNoOverlap(LocalTime start, LocalTime end, String dayOfWeek, Long excludeId) {
+        List<TimeSlot> existingSlots = timeSlotRepository.findAll();
+        for (TimeSlot existing : existingSlots) {
+            if (excludeId != null && existing.getSlotId().equals(excludeId)) {
+                continue;
+            }
+            if (!Boolean.TRUE.equals(existing.getIsActive())) {
+                continue;
+            }
+
+            String d1 = dayOfWeek != null ? dayOfWeek : "ALL";
+            String d2 = existing.getDayOfWeek() != null ? existing.getDayOfWeek() : "ALL";
+            boolean dayConflict = d1.equalsIgnoreCase("ALL") || d2.equalsIgnoreCase("ALL") || d1.equalsIgnoreCase(d2);
+
+            if (dayConflict) {
+                LocalTime s1 = start;
+                LocalTime e1 = end;
+                LocalTime s2 = existing.getStartTime();
+                LocalTime e2 = existing.getEndTime();
+
+                if (s1.isBefore(e2) && s2.isBefore(e1)) {
+                    throw new BadRequestException("⚠️ Lỗi trùng lặp: Khung giờ [" + s1 + " - " + e1 + 
+                            "] bị giao thoa thời gian với khung giờ hoạt động sẵn có [" + s2 + " - " + e2 + "] của cấu hình ngày " + d2 + "!");
+                }
+            }
+        }
     }
 
     public TimeSlotResponse mapToResponse(TimeSlot entity) {

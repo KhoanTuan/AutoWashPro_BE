@@ -166,6 +166,7 @@ public class DashboardQueryRepository {
         BigDecimal standard = BigDecimal.ZERO;
         BigDecimal interior = BigDecimal.ZERO; // PKG-DELUXE
         BigDecimal ceramic = BigDecimal.ZERO;  // PKG-ULTIMATE
+        BigDecimal other = BigDecimal.ZERO;    // Any new dynamic package
 
         for (Object[] row : itemResults) {
             String code = (String) row[0];
@@ -176,6 +177,8 @@ public class DashboardQueryRepository {
                 interior = interior.add(sumPrice);
             } else if ("PKG-ULTIMATE".equalsIgnoreCase(code)) {
                 ceramic = ceramic.add(sumPrice);
+            } else {
+                other = other.add(sumPrice);
             }
         }
 
@@ -184,6 +187,7 @@ public class DashboardQueryRepository {
                 .standardWashRevenue(standard.setScale(0, RoundingMode.HALF_UP))
                 .interiorComboRevenue(interior.setScale(0, RoundingMode.HALF_UP))
                 .ceramicVipRevenue(ceramic.setScale(0, RoundingMode.HALF_UP))
+                .otherRevenue(other.setScale(0, RoundingMode.HALF_UP))
                 .totalRevenue(totalRev)
                 .aov(aov)
                 .build();

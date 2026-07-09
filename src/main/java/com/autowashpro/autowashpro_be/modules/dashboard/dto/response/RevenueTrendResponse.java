@@ -34,6 +34,11 @@ public class RevenueTrendResponse {
     private BigDecimal ceramicVipRevenue;
 
     /**
+     * Doanh thu từ các gói dịch vụ khác được tạo động.
+     */
+    private BigDecimal otherRevenue;
+
+    /**
      * Tổng doanh thu của mốc thời gian này.
      */
     private BigDecimal totalRevenue;
