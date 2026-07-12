@@ -48,6 +48,28 @@ app:
     expiration-ms: 86400000
   otp:
     ttl-seconds: 120
+  payment:
+    momo:
+      # MoMo Sandbox Credentials
+      # Replace with your actual MoMo Sandbox credentials from https://dev.momo.vn
+      partner-code: ${MOMO_PARTNER_CODE:MOMO12345}
+      access-key: ${MOMO_ACCESS_KEY:F8635FE50A0FE6588}
+      secret-key: ${MOMO_SECRET_KEY:NFcpIQIChnh0szvg6Z9zesZDZURAVESz}
+      
+      # MoMo Sandbox API Endpoint
+      endpoint: ${MOMO_ENDPOINT:https://test-payment.momo.vn/v2/gateway/api/create}
+      
+      # Frontend success page URL (where customer is redirected after payment)
+      redirect-url: ${MOMO_REDIRECT_URL:http://localhost:3000/payment-success}
+      
+      # Backend webhook URL for IPN callbacks (MoMo will POST to this)
+      ipn-url: ${MOMO_IPN_URL:http://localhost:8080/api/v1/callback/momo/ipn}
+      
+      # MoMo payment request type (always "captureWallet" for standard payments)
+      request-type: captureWallet
+      
+      # Language for MoMo UI ("vi" for Vietnamese, "en" for English)
+      lang: vi
   frontend:
     url: http://localhost:5173
   # mail.mode: GMAIL hoặc MOCK — đặt trong application-local.yaml (giống auth-test-sandbox)

@@ -2,6 +2,7 @@ package com.autowashpro.autowashpro_be.modules.customer.controller;
 
 import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltyTierRequest;
 import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltyTierResponse;
+import com.autowashpro.autowashpro_be.modules.customer.dto.RetentionSimulationResponse;
 import com.autowashpro.autowashpro_be.modules.customer.service.LoyaltyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,5 +35,11 @@ public class AdminLoyaltyController {
             @PathVariable Integer tierId,
             @Valid @RequestBody LoyaltyTierRequest request) {
         return ResponseEntity.ok(loyaltyService.updateTierConfig(tierId, request));
+    }
+
+    @PostMapping("/run-simulation")
+    @Operation(summary = "Chạy mô phỏng retention loyalty và báo cáo kết quả")
+    public ResponseEntity<RetentionSimulationResponse> runRetentionSimulation() {
+        return ResponseEntity.ok(loyaltyService.runRetentionSimulation());
     }
 }

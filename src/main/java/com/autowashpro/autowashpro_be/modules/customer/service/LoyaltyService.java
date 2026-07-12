@@ -14,7 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
+
+import com.autowashpro.autowashpro_be.modules.customer.dto.RetentionSimulationResponse;
+import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -101,6 +105,60 @@ public class LoyaltyService {
         LoyaltyTier updated = loyaltyTierRepository.save(tier);
         log.info("Updated loyalty tier config: {} (Window: {} days)", updated.getTierName(), updated.getBookingWindowDays());
         return mapToResponse(updated);
+    }
+
+    @Transactional
+    public RetentionSimulationResponse runRetentionSimulation() {
+        LoyaltyTier regularTier = loyaltyTierRepository.findByTierName("REGULAR")
+                .orElseThrow(() -> new ResourceNotFoundException("Default loyalty tier REGULAR not found"));
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiryThreshold = now.minusMonths(12);
+        LocalDateTime downgradeThreshold = now.minusMonths(6);
+
+        int expiredPoints = 0;
+        int downgradedUsers = 0;
+        int deactivatedUsers = 0;
+
+        List<Customer> customers = customerRepository.findAll();
+        for (Customer customer : customers) {
+            boolean updated = false;
+            LocalDateTime lastBooking = customer.getLastCompletedBookingAt();
+            boolean inactiveForOneYear = lastBooking == null || lastBooking.isBefore(expiryThreshold);
+            boolean inactiveForSixMonths = lastBooking == null || lastBooking.isBefore(downgradeThreshold);
+
+            if (inactiveForOneYear && customer.getLoyaltyPoints() != null && customer.getLoyaltyPoints() > 0) {
+                expiredPoints += customer.getLoyaltyPoints();
+                customer.setLoyaltyPoints(0);
+                updated = true;
+            }
+
+            if (inactiveForSixMonths && customer.getTier() != null && !"REGULAR".equalsIgnoreCase(customer.getTier().getTierName())) {
+                customer.setTier(regularTier);
+                downgradedUsers++;
+                updated = true;
+            }
+
+            if (inactiveForOneYear && customer.getStatus() == CustomerStatus.ACTIVE) {
+                customer.setStatus(CustomerStatus.INACTIVE);
+                deactivatedUsers++;
+                updated = true;
+            }
+
+            if (updated) {
+                customerRepository.save(customer);
+            }
+        }
+
+        log.info("Retention simulation completed: expiredPoints={}, downgradedUsers={}, deactivatedUsers={}",
+                expiredPoints, downgradedUsers, deactivatedUsers);
+
+        return RetentionSimulationResponse.builder()
+                .status("success")
+                .expiredPoints(expiredPoints)
+                .downgradedUsers(downgradedUsers)
+                .deactivatedUsers(deactivatedUsers)
+                .build();
     }
 
     private LoyaltyTierResponse mapToResponse(LoyaltyTier tier) {
