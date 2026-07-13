@@ -6,24 +6,28 @@ import com.autowashpro.autowashpro_be.modules.booking.dto.BookingItemResponse;
 import com.autowashpro.autowashpro_be.modules.booking.dto.BookingResponse;
 import com.autowashpro.autowashpro_be.modules.booking.dto.CreateBookingRequest;
 import com.autowashpro.autowashpro_be.modules.booking.dto.SlotAvailabilityResponse;
+import com.autowashpro.autowashpro_be.modules.booking.dto.SlotOccupancyResponse;
 import com.autowashpro.autowashpro_be.modules.booking.entity.*;
 import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.GarageClosureRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
+import com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyTier;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Vehicle;
 import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.autowashpro.autowashpro_be.modules.notification.entity.NotificationType;
-import com.autowashpro.autowashpro_be.modules.notification.service.RealtimeNotificationService;
+import com.autowashpro.autowashpro_be.modules.booking.event.BookingEvent;
+import com.autowashpro.autowashpro_be.modules.booking.event.BookingEventAction;
+import com.autowashpro.autowashpro_be.modules.booking.event.SlotCapacityChangeEvent;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotion;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotionStatus;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.DiscountType;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.Promotion;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.PromotionStatus;
 import com.autowashpro.autowashpro_be.modules.marketing.repository.CustomerPromotionRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,8 +49,11 @@ public class BookingService {
     private final ServiceCatalogRepository serviceCatalogRepository;
     private final GarageClosureRepository garageClosureRepository;
     private final VehicleRepository vehicleRepository;
-    private final RealtimeNotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
     private final CustomerPromotionRepository customerPromotionRepository;
+    private final com.autowashpro.autowashpro_be.modules.booking.repository.SlotLockRepository slotLockRepository;
+    private final com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository customerRepository;
+    private final com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository loyaltyTierRepository;
 
     private static final List<BookingStatus> ACTIVE_CAPACITY_STATUSES = Arrays.asList(
             BookingStatus.PENDING,
@@ -283,7 +290,7 @@ public class BookingService {
 
         log.info("Created booking successfully: {} for license plate {}. Discount: {}, Final: {}", 
                 savedBooking.getBookingCode(), savedBooking.getLicensePlate(), savedBooking.getDiscountAmount(), savedBooking.getFinalAmount());
-        notificationService.notifyNewBooking(savedBooking);
+        eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.CREATED));
 
         return mapToResponse(savedBooking);
     }
@@ -333,7 +340,9 @@ public class BookingService {
 
         Booking savedBooking = bookingRepository.save(booking);
         log.info("Booking cancelled by customer: {}", savedBooking.getBookingCode());
-        notificationService.notifyBookingStatusChanged(savedBooking, NotificationType.BOOKING_CANCELLED, "Khách hàng hủy lịch hẹn", "Khách hàng " + savedBooking.getCustomer().getFullName() + " đã hủy lịch hẹn " + savedBooking.getBookingCode() + " cho khung giờ ngày " + savedBooking.getBookingDate());
+        eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.CANCELLED,
+                "Khách hàng hủy lịch hẹn",
+                "Khách hàng " + savedBooking.getCustomer().getFullName() + " đã hủy lịch hẹn " + savedBooking.getBookingCode() + " cho khung giờ ngày " + savedBooking.getBookingDate()));
 
         return mapToResponse(savedBooking);
     }
@@ -397,5 +406,206 @@ public class BookingService {
                 .items(itemResponses)
                 .createdAt(entity.getCreatedAt())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookingResponse> searchBookingsForAdmin(String query, LocalDate date) {
+        if (query != null && !query.trim().isEmpty()) {
+            return bookingRepository.searchBookings(query.trim())
+                    .stream()
+                    .map(this::mapToResponse)
+                    .collect(Collectors.toList());
+        }
+        return bookingRepository.findAllByBookingDate(date)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public BookingResponse checkinLate(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch: " + bookingId));
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new BadRequestException("Đơn đặt lịch không ở trạng thái chờ phục vụ (PENDING)");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+
+        if (booking.getBookingDate().isBefore(today) ||
+                (booking.getBookingDate().isEqual(today) && now.isAfter(booking.getTimeSlot().getEndTime()))) {
+            throw new BadRequestException("Không thể khôi phục check-in! Đơn đặt lịch đã quá giờ kết thúc slot (" + booking.getTimeSlot().getEndTime() + ").");
+        }
+
+        // Kiểm tra công suất
+        int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(booking.getBookingDate(), booking.getTimeSlot().getSlotId())
+                .map(SlotLock::getLockCount)
+                .orElse(0);
+
+        int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
+                booking.getBookingDate(), booking.getTimeSlot().getSlotId(), ACTIVE_CAPACITY_STATUSES);
+
+        if (bookedCount + lockedCount >= booking.getTimeSlot().getMaxCapacity()) {
+            throw new BadRequestException("Khung giờ này đã đầy công suất (Đã đặt: " + bookedCount + ", Đã khóa: " + lockedCount + "). Không thể check-in!");
+        }
+
+        booking.setStatus(BookingStatus.IN_PROGRESS);
+        Booking savedBooking = bookingRepository.save(booking);
+
+        eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.CHECKED_IN,
+                "Check-in trễ thành công!",
+                "Đơn đặt lịch " + booking.getBookingCode() + " đã check-in trễ giờ thành công tại quầy và bắt đầu dọn rửa."));
+
+        return mapToResponse(savedBooking);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SlotOccupancyResponse> getOccupancyMonitor(LocalDate date) {
+        List<TimeSlot> slots = timeSlotRepository.findAllByOrderByDisplayOrderAsc();
+        List<SlotOccupancyResponse> responses = new ArrayList<>();
+
+        for (TimeSlot slot : slots) {
+            int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
+                    date, slot.getSlotId(), ACTIVE_CAPACITY_STATUSES);
+
+            int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slot.getSlotId())
+                    .map(SlotLock::getLockCount)
+                    .orElse(0);
+
+            responses.add(SlotOccupancyResponse.builder()
+                    .slotId(slot.getSlotId())
+                    .startTime(slot.getStartTime())
+                    .endTime(slot.getEndTime())
+                    .maxCapacity(slot.getMaxCapacity())
+                    .bookedCount(bookedCount)
+                    .lockedCount(lockedCount)
+                    .isActive(slot.getIsActive())
+                    .build());
+        }
+        return responses;
+    }
+
+    @Transactional
+    public SlotOccupancyResponse adjustLock(LocalDate date, Long slotId, int adjustment) {
+        TimeSlot slot = timeSlotRepository.findById(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung giờ với ID: " + slotId));
+
+        SlotLock slotLock = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slotId)
+                .orElseGet(() -> SlotLock.builder()
+                        .lockDate(date)
+                        .timeSlot(slot)
+                        .lockCount(0)
+                        .build());
+
+        int newCount = Math.max(0, slotLock.getLockCount() + adjustment);
+        
+        int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
+                date, slotId, ACTIVE_CAPACITY_STATUSES);
+        
+        if (newCount + bookedCount > slot.getMaxCapacity()) {
+            throw new BadRequestException("Tổng số chỗ đã khóa và đã đặt không được vượt quá công suất tối đa của khung giờ (" + slot.getMaxCapacity() + ")");
+        }
+
+        slotLock.setLockCount(newCount);
+        slotLockRepository.save(slotLock);
+
+        eventPublisher.publishEvent(new SlotCapacityChangeEvent(this, date, slotId));
+
+        return SlotOccupancyResponse.builder()
+                .slotId(slot.getSlotId())
+                .startTime(slot.getStartTime())
+                .endTime(slot.getEndTime())
+                .maxCapacity(slot.getMaxCapacity())
+                .bookedCount(bookedCount)
+                .lockedCount(newCount)
+                .isActive(slot.getIsActive())
+                .build();
+    }
+
+    @Transactional
+    public BookingResponse completeCheckout(Long bookingId, String paymentMethod) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch: " + bookingId));
+
+        if (booking.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BadRequestException("Đơn đặt lịch này đã được thanh toán rồi!");
+        }
+
+        booking.setPaymentStatus(PaymentStatus.PAID);
+        booking.setStatus(BookingStatus.COMPLETED);
+        Booking savedBooking = bookingRepository.save(booking);
+
+        log.info("Booking marked as COMPLETED and PAID via: {} for bookingId: {}", paymentMethod, bookingId);
+
+        Customer customer = booking.getCustomer();
+        BigDecimal amount = booking.getFinalAmount() != null ? booking.getFinalAmount() : booking.getTotalEstimatedAmount();
+        BigDecimal baseSpend = BigDecimal.valueOf(10000);
+        BigDecimal basePoints = BigDecimal.valueOf(1);
+        BigDecimal multiplier = customer.getTier().getTierMultiplier() != null ? customer.getTier().getTierMultiplier() : BigDecimal.ONE;
+
+        int pointsToAdd = amount.divide(baseSpend, 0, java.math.RoundingMode.DOWN)
+                .multiply(basePoints)
+                .multiply(multiplier)
+                .intValue();
+        
+        customer.setLoyaltyPoints(customer.getLoyaltyPoints() + pointsToAdd);
+        customer.setTotalSpending(customer.getTotalSpending().add(amount));
+        customer.setTierSpending(customer.getTierSpending().add(amount));
+        customer.setVisitCount(customer.getVisitCount() + 1);
+        
+        List<LoyaltyTier> allTiers = loyaltyTierRepository.findAllByOrderByMinSpendAsc();
+        BigDecimal tierSpend = customer.getTierSpending();
+
+        for (int i = allTiers.size() - 1; i >= 0; i--) {
+            LoyaltyTier tier = allTiers.get(i);
+            if (tierSpend.compareTo(tier.getMinSpend()) >= 0) {
+                if (customer.getTier() == null || customer.getTier().getMinSpend().compareTo(tier.getMinSpend()) < 0) {
+                    customer.setTier(tier);
+                    log.info("Customer {} upgraded to VIP tier: {} during checkout", customer.getCustomerId(), tier.getTierName());
+                }
+                break;
+            }
+        }
+        
+        customerRepository.save(customer);
+
+        eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.COMPLETED,
+                "Giao dịch hoàn tất!",
+                "Đơn hàng " + booking.getBookingCode() + " đã thanh toán thành công và hoàn thành dọn rửa. Bạn tích lũy được +" + pointsToAdd + " Pts."));
+
+        return mapToResponse(savedBooking);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookingResponse> getBookingsForAdmin(LocalDate date, String status) {
+        List<Booking> list;
+        if (date != null) {
+            list = bookingRepository.findAllByBookingDate(date);
+        } else {
+            list = bookingRepository.findAll();
+        }
+
+        if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("All")) {
+            String cleanStatus = status.trim().toLowerCase();
+            list = list.stream().filter(b -> {
+                String bStatus = b.getStatus().name().toLowerCase();
+                if (cleanStatus.contains("cancel")) {
+                    return bStatus.contains("cancel");
+                }
+                if (cleanStatus.contains("complete")) {
+                    return bStatus.contains("complete");
+                }
+                if (cleanStatus.contains("pending") || cleanStatus.contains("confirm") || cleanStatus.contains("in_progress") || cleanStatus.contains("queue")) {
+                    return bStatus.equals("pending") || bStatus.equals("confirmed") || bStatus.equals("in_progress");
+                }
+                return bStatus.equalsIgnoreCase(cleanStatus);
+            }).collect(Collectors.toList());
+        }
+
+        return list.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 }

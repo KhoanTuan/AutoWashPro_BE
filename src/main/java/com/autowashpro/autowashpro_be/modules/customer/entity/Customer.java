@@ -54,6 +54,10 @@ public class Customer extends BaseEntity {
     @Builder.Default
     private BigDecimal totalSpending = BigDecimal.ZERO;
 
+    @Column(name = "tier_spending", nullable = false, precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal tierSpending = BigDecimal.ZERO;
+
     @Column(name = "loyalty_points", nullable = false)
     @Builder.Default
     private Integer loyaltyPoints = 0;

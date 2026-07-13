@@ -21,6 +21,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.context.ApplicationEventPublisher;
+import com.autowashpro.autowashpro_be.modules.marketing.event.PromotionEvent;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -35,6 +38,7 @@ public class AdminPromotionServiceImpl implements AdminPromotionService {
     private final CustomerRepository customerRepository;
     private final CustomerPromotionRepository customerPromotionRepository;
     private final BookingRepository bookingRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -60,6 +64,9 @@ public class AdminPromotionServiceImpl implements AdminPromotionService {
                 .status(PromotionStatus.ACTIVE)
                 .build();
         Promotion saved = promotionRepository.save(promotion);
+        
+        eventPublisher.publishEvent(new PromotionEvent(this, saved, "CREATED"));
+
         return mapToResponse(saved);
     }
 

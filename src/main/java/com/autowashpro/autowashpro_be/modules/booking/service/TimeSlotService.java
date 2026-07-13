@@ -9,10 +9,11 @@ import com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus;
 import com.autowashpro.autowashpro_be.modules.booking.entity.TimeSlot;
 import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
-import com.autowashpro.autowashpro_be.modules.notification.entity.NotificationType;
-import com.autowashpro.autowashpro_be.modules.notification.service.RealtimeNotificationService;
+import com.autowashpro.autowashpro_be.modules.booking.event.BookingEvent;
+import com.autowashpro.autowashpro_be.modules.booking.event.BookingEventAction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +30,7 @@ public class TimeSlotService {
 
     private final TimeSlotRepository timeSlotRepository;
     private final BookingRepository bookingRepository;
-    private final RealtimeNotificationService realtimeNotificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<TimeSlotResponse> getAllSlots(boolean activeOnly) {
@@ -115,7 +116,7 @@ public class TimeSlotService {
                 String content = String.format("Khung giờ %s - %s ngày %s đã tạm thời bị đóng do bảo trì khẩn cấp/sự cố kỹ thuật. Vui lòng liên hệ Hotline trạm hoặc đặt lại giờ khác. NovaWash chân thành xin lỗi quý khách!",
                         slot.getStartTime(), slot.getEndTime(), booking.getBookingDate());
 
-                realtimeNotificationService.notifyBookingStatusChanged(booking, NotificationType.SYSTEM_ALERT, title, content);
+                eventPublisher.publishEvent(new BookingEvent(this, booking, BookingEventAction.CANCELLED, title, content));
                 log.info("Đã gửi thông báo khẩn cấp đóng khung giờ tới khách hàng {} (Đơn: {})", booking.getCustomer().getPhoneNumber(), booking.getBookingCode());
             }
         }

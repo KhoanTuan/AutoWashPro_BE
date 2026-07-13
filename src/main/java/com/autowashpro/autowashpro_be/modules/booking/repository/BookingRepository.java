@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -19,8 +20,21 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findAllByCustomerCustomerIdOrderByCreatedAtDesc(Long customerId);
     Optional<Booking> findByBookingCode(String bookingCode);
     boolean existsByBookingCode(String bookingCode);
+    List<Booking> findAllByBookingDate(LocalDate bookingDate);
+
+    @Query("SELECT b FROM Booking b WHERE " +
+           "LOWER(b.bookingCode) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(b.licensePlate) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(b.customer.phoneNumber) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(b.customer.fullName) LIKE LOWER(CONCAT('%', :query, '%'))")
+    List<Booking> searchBookings(String query);
+
     List<Booking> findAllByTimeSlotSlotIdAndBookingDateGreaterThanEqualAndStatusIn(Long slotId, LocalDate fromDate, Collection<BookingStatus> statuses);
 
     @Query("SELECT b FROM Booking b WHERE b.status = 'COMPLETED' AND b.voucherCode IS NOT NULL")
     List<Booking> findCompletedBookingsWithVoucher();
+
+    @Query("SELECT b FROM Booking b WHERE b.status = 'PENDING' AND " +
+           "(b.bookingDate < :today OR (b.bookingDate = :today AND b.timeSlot.endTime < :now))")
+    List<Booking> findOverdueBookings(LocalDate today, LocalTime now);
 }

@@ -16,6 +16,9 @@ import com.autowashpro.autowashpro_be.modules.booking.entity.Booking;
 import com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus;
 import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
 
+import org.springframework.context.ApplicationEventPublisher;
+import com.autowashpro.autowashpro_be.modules.marketing.event.FeedbackEvent;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +31,7 @@ public class CustomerFeedbackServiceImpl implements CustomerFeedbackService {
     private final CustomerFeedbackRepository customerFeedbackRepository;
     private final CustomerRepository customerRepository;
     private final BookingRepository bookingRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -74,6 +78,9 @@ public class CustomerFeedbackServiceImpl implements CustomerFeedbackService {
 
         CustomerFeedback saved = customerFeedbackRepository.save(feedback);
         log.info("Customer {} created feedback for booking {}: {} stars", customer.getFullName(), request.getBookingCode(), request.getRatingStars());
+        
+        eventPublisher.publishEvent(new FeedbackEvent(this, saved, "CREATED"));
+
         return mapToResponse(saved);
     }
 

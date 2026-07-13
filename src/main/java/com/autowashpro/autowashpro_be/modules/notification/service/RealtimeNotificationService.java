@@ -16,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -45,7 +46,7 @@ public class RealtimeNotificationService {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void notifyNewBooking(Booking booking) {
         String slotTimeStr = formatSlotTime(booking.getTimeSlot());
         String dateStr = booking.getBookingDate().format(DATE_FORMATTER);
@@ -72,7 +73,7 @@ public class RealtimeNotificationService {
         broadcastSlotCapacityChange(booking.getBookingDate(), booking.getTimeSlot().getSlotId());
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void notifyBookingStatusChanged(Booking booking, NotificationType type, String title, String content) {
         // 1. Lưu DB cho CUSTOMER
         saveNotification(NotificationRecipientType.CUSTOMER, booking.getCustomer().getCustomerId(),
@@ -164,7 +165,8 @@ public class RealtimeNotificationService {
         }
     }
 
-    private void saveNotification(NotificationRecipientType recipientType, Long recipientId,
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveNotification(NotificationRecipientType recipientType, Long recipientId,
                                   String title, String content, NotificationType type, String refCode) {
         try {
             Notification notification = Notification.builder()
@@ -179,6 +181,26 @@ public class RealtimeNotificationService {
             notificationRepository.save(notification);
         } catch (Exception e) {
             log.error("Error saving notification to DB: {}", e.getMessage());
+        }
+    }
+
+    public void sendMarketingWsMessage(String destination, Object payload) {
+        try {
+            if (messagingTemplate.isPresent()) {
+                messagingTemplate.get().convertAndSend(destination, payload);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send marketing WebSocket message: {}", e.getMessage());
+        }
+    }
+
+    public void sendMarketingWsMessageToUser(String username, String destination, Object payload) {
+        try {
+            if (messagingTemplate.isPresent()) {
+                messagingTemplate.get().convertAndSendToUser(username, destination, payload);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send marketing WebSocket message to user: {}", e.getMessage());
         }
     }
 

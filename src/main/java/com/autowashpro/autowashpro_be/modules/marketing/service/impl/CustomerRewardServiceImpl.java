@@ -13,6 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.context.ApplicationEventPublisher;
+import com.autowashpro.autowashpro_be.modules.marketing.event.VoucherRedemptionEvent;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -25,6 +28,7 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
     private final PromotionRepository promotionRepository;
     private final CustomerRepository customerRepository;
     private final CustomerPromotionRepository customerPromotionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -132,6 +136,9 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
         promotionRepository.save(promotion);
 
         log.info("Customer {} successfully claimed free voucher {}", customer.getFullName(), voucherCode);
+        
+        eventPublisher.publishEvent(new VoucherRedemptionEvent(this, saved, "CLAIMED"));
+
         return mapToVoucherResponse(saved);
     }
 
@@ -201,6 +208,9 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
         promotionRepository.save(promotion);
 
         log.info("Customer {} exchanged {} points for voucher {}", customer.getFullName(), cost, voucherCode);
+        
+        eventPublisher.publishEvent(new VoucherRedemptionEvent(this, saved, "EXCHANGED"));
+
         return mapToVoucherResponse(saved);
     }
 

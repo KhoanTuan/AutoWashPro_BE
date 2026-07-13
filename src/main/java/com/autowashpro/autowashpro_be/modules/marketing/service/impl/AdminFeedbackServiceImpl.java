@@ -18,6 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import org.springframework.context.ApplicationEventPublisher;
+import com.autowashpro.autowashpro_be.modules.marketing.event.FeedbackEvent;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -26,6 +32,7 @@ public class AdminFeedbackServiceImpl implements AdminFeedbackService {
     private final CustomerFeedbackRepository customerFeedbackRepository;
     private final PromotionRepository promotionRepository;
     private final CustomerPromotionRepository customerPromotionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -88,7 +95,10 @@ public class AdminFeedbackServiceImpl implements AdminFeedbackService {
             log.info("Issued compensation voucher {} to customer {}", voucherCode, customer.getFullName());
         }
 
-        return mapToResponse(customerFeedbackRepository.save(feedback));
+        CustomerFeedback saved = customerFeedbackRepository.save(feedback);
+        eventPublisher.publishEvent(new FeedbackEvent(this, saved, "REPLIED"));
+
+        return mapToResponse(saved);
     }
 
     private FeedbackResponse mapToResponse(CustomerFeedback f) {
