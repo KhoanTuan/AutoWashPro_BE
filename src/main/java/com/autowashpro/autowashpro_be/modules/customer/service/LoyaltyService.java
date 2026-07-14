@@ -16,6 +16,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
+import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
+import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltyConfigRequest;
+import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltySettingsResponse;
+import com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyConfig;
+import com.autowashpro.autowashpro_be.modules.customer.entity.PointActivityType;
+import com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction;
+import com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyConfigRepository;
+import com.autowashpro.autowashpro_be.modules.customer.repository.PointTransactionRepository;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -23,6 +32,68 @@ public class LoyaltyService {
 
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final CustomerRepository customerRepository;
+    private final LoyaltyConfigRepository loyaltyConfigRepository;
+    private final PointTransactionRepository pointTransactionRepository;
+
+    @Transactional(readOnly = true)
+    public LoyaltySettingsResponse getLoyaltySettings() {
+        return LoyaltySettingsResponse.builder()
+                .config(loyaltyConfigRepository.getGlobalConfig())
+                .tiers(getAllTiers())
+                .build();
+    }
+
+    @Transactional
+    public LoyaltyConfig updateLoyaltyConfig(LoyaltyConfigRequest request) {
+        if (request.getInactivityLockoutMonths() <= request.getInactivityDowngradeMonths()) {
+            throw new BadRequestException("Thời gian khóa tài khoản (" + request.getInactivityLockoutMonths() + " tháng) phải lớn hơn thời gian hạ hạng (" + request.getInactivityDowngradeMonths() + " tháng)!");
+        }
+
+        LoyaltyConfig config = loyaltyConfigRepository.getGlobalConfig();
+        config.setBasePointRate(request.getBasePointRate());
+        config.setBasePoints(request.getBasePoints());
+        config.setRoundDown(request.getRoundDown());
+        config.setPointValidityMonths(request.getPointValidityMonths());
+        config.setInactivityDowngradeMonths(request.getInactivityDowngradeMonths());
+        config.setInactivityLockoutMonths(request.getInactivityLockoutMonths());
+
+        log.info("Updated global loyalty config: point rate: {}, round down: {}", config.getBasePointRate(), config.getRoundDown());
+        return loyaltyConfigRepository.save(config);
+    }
+
+    @Transactional
+    public void simulateSetInactivity(Long customerId, int months) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với ID: " + customerId));
+        
+        java.time.LocalDateTime targetDate = java.time.LocalDateTime.now().minusMonths(months);
+        customer.setLastCompletedBookingAt(targetDate);
+        customerRepository.save(customer);
+        customerRepository.updateCreatedAt(customerId, targetDate);
+        log.info("Simulated inactivity for customer: {} (set last completed booking & created_at to {} months ago)", customer.getFullName(), months);
+    }
+
+    @Transactional
+    public void simulateSetPointsExpired(Long customerId, int months) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với ID: " + customerId));
+        
+        // Cộng 100 điểm để có điểm giả lập hết hạn
+        customer.setLoyaltyPoints(customer.getLoyaltyPoints() + 100);
+        customerRepository.save(customer);
+
+        PointTransaction pt = PointTransaction.builder()
+                .customer(customer)
+                .points(100)
+                .activityType(PointActivityType.EARNED)
+                .bookingCode("SIM-MOCK-EARNED")
+                .build();
+        pointTransactionRepository.saveAndFlush(pt);
+        
+        java.time.LocalDateTime targetDate = java.time.LocalDateTime.now().minusMonths(months);
+        pointTransactionRepository.updateCreatedAt(pt.getPointTransactionId(), targetDate);
+        log.info("Simulated point expiration for customer: {} (added 100 points transaction set to {} months ago)", customer.getFullName(), months);
+    }
 
     @Transactional(readOnly = true)
     public List<LoyaltyTierResponse> getAllTiers() {

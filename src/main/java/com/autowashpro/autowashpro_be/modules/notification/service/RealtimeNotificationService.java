@@ -91,6 +91,27 @@ public class RealtimeNotificationService {
         broadcastSlotCapacityChange(booking.getBookingDate(), booking.getTimeSlot().getSlotId());
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void notifyGeneral(Long customerId, String title, String content, NotificationType type) {
+        // 1. Lưu DB cho CUSTOMER
+        saveNotification(NotificationRecipientType.CUSTOMER, customerId, title, content, type, null);
+        
+        // 2. Bắn WebSocket cho CUSTOMER
+        try {
+            if (messagingTemplate.isPresent()) {
+                WsBookingMessage cusMsg = WsBookingMessage.builder()
+                        .type(type.name())
+                        .customerId(customerId)
+                        .title(title)
+                        .content(content)
+                        .build();
+                messagingTemplate.get().convertAndSend("/topic/customer/" + customerId + "/notifications", (Object) cusMsg);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket general notification: {}", e.getMessage());
+        }
+    }
+
     @Transactional(readOnly = true)
     public void broadcastSlotCapacityChange(LocalDate date, Long slotId) {
         try {

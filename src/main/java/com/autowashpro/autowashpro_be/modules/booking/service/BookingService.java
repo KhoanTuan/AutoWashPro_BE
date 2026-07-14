@@ -54,6 +54,8 @@ public class BookingService {
     private final com.autowashpro.autowashpro_be.modules.booking.repository.SlotLockRepository slotLockRepository;
     private final com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository customerRepository;
     private final com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository loyaltyTierRepository;
+    private final com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyConfigRepository loyaltyConfigRepository;
+    private final com.autowashpro.autowashpro_be.modules.customer.repository.PointTransactionRepository pointTransactionRepository;
 
     private static final List<BookingStatus> ACTIVE_CAPACITY_STATUSES = Arrays.asList(
             BookingStatus.PENDING,
@@ -133,6 +135,36 @@ public class BookingService {
     @Transactional
     public BookingResponse createBooking(CreateBookingRequest request, Customer customer) {
         validateBookingDate(request.getBookingDate(), customer);
+
+        // Kiểm tra xem khách hàng có đang bị phạt khóa đặt lịch 7 ngày hay không (do trễ hẹn No-Show >= 3 lần trong vòng 30 ngày)
+        java.time.LocalDateTime startOf30DaysAgo = java.time.LocalDateTime.now().minusDays(30);
+        long noShowCount = bookingRepository.countByCustomerCustomerIdAndStatusInAndUpdatedAtAfter(
+                customer.getCustomerId(), 
+                Arrays.asList(BookingStatus.CANCELLED_NO_SHOW), 
+                startOf30DaysAgo
+        );
+        if (noShowCount >= 3) {
+            Optional<Booking> latestNoShowOpt = bookingRepository.findFirstByCustomerCustomerIdAndStatusOrderByUpdatedAtDesc(
+                    customer.getCustomerId(), BookingStatus.CANCELLED_NO_SHOW);
+            if (latestNoShowOpt.isPresent()) {
+                java.time.LocalDateTime banUntil = latestNoShowOpt.get().getUpdatedAt().plusDays(7);
+                if (java.time.LocalDateTime.now().isBefore(banUntil)) {
+                    java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+                    throw new BadRequestException("Tài khoản của bạn đã bị tạm khóa tính năng đặt lịch online đến " + banUntil.format(formatter) + " do vi phạm trễ hẹn (No-Show) " + noShowCount + " lần trong vòng 30 ngày qua!");
+                }
+            }
+        }
+
+        // Chặn spam đặt/hủy liên tục trong ngày (tối đa 3 lần/ngày)
+        java.time.LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+        long canceledToday = bookingRepository.countByCustomerCustomerIdAndStatusInAndUpdatedAtAfter(
+                customer.getCustomerId(), 
+                Arrays.asList(BookingStatus.CANCELLED_BY_CUSTOMER, BookingStatus.CANCELLED_NO_SHOW), 
+                startOfToday
+        );
+        if (canceledToday >= 3) {
+            throw new BadRequestException("Tài khoản của bạn đã tự hủy " + canceledToday + " đơn đặt lịch trong ngày hôm nay. Để chống spam giữ chỗ, tài khoản bị tạm khóa tính năng đặt lịch cho đến ngày mai!");
+        }
 
         Optional<GarageClosure> closureOpt = garageClosureRepository.findByClosureDate(request.getBookingDate());
         if (closureOpt.isPresent() && Boolean.TRUE.equals(closureOpt.get().getIsFullDay())) {
@@ -321,6 +353,13 @@ public class BookingService {
 
         if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new BadRequestException("Đơn đặt lịch đang ở trạng thái '" + booking.getStatus() + "', không thể hủy!");
+        }
+
+        // Chặn tự hủy sát giờ hẹn dưới 2 tiếng
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime slotStartTime = LocalDateTime.of(booking.getBookingDate(), booking.getTimeSlot().getStartTime());
+        if (now.plusHours(2).isAfter(slotStartTime)) {
+            throw new BadRequestException("Không thể tự hủy lịch hẹn sát giờ phục vụ (dưới 2 tiếng). Vui lòng liên hệ Hotline xưởng để được hỗ trợ!");
         }
 
         booking.setStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
@@ -541,11 +580,13 @@ public class BookingService {
 
         Customer customer = booking.getCustomer();
         BigDecimal amount = booking.getFinalAmount() != null ? booking.getFinalAmount() : booking.getTotalEstimatedAmount();
-        BigDecimal baseSpend = BigDecimal.valueOf(10000);
-        BigDecimal basePoints = BigDecimal.valueOf(1);
+        
+        com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyConfig config = loyaltyConfigRepository.getGlobalConfig();
+        BigDecimal baseSpend = config.getBasePointRate();
+        BigDecimal basePoints = BigDecimal.valueOf(config.getBasePoints());
         BigDecimal multiplier = customer.getTier().getTierMultiplier() != null ? customer.getTier().getTierMultiplier() : BigDecimal.ONE;
 
-        int pointsToAdd = amount.divide(baseSpend, 0, java.math.RoundingMode.DOWN)
+        int pointsToAdd = amount.divide(baseSpend, 0, Boolean.TRUE.equals(config.getRoundDown()) ? java.math.RoundingMode.DOWN : java.math.RoundingMode.HALF_UP)
                 .multiply(basePoints)
                 .multiply(multiplier)
                 .intValue();
@@ -554,6 +595,16 @@ public class BookingService {
         customer.setTotalSpending(customer.getTotalSpending().add(amount));
         customer.setTierSpending(customer.getTierSpending().add(amount));
         customer.setVisitCount(customer.getVisitCount() + 1);
+        customer.setLastCompletedBookingAt(LocalDateTime.now());
+        
+        // Ghi nhận nhật ký tích điểm
+        com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction pt = com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction.builder()
+                .customer(customer)
+                .points(pointsToAdd)
+                .activityType(com.autowashpro.autowashpro_be.modules.customer.entity.PointActivityType.EARNED)
+                .bookingCode(booking.getBookingCode())
+                .build();
+        pointTransactionRepository.save(pt);
         
         List<LoyaltyTier> allTiers = loyaltyTierRepository.findAllByOrderByMinSpendAsc();
         BigDecimal tierSpend = customer.getTierSpending();

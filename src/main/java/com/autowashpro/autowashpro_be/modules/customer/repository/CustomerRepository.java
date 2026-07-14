@@ -42,4 +42,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     Page<Customer> search(@Param("status") CustomerStatus status,
                           @Param("keyword") String keyword,
                           Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "UPDATE customer SET created_at = :createdAt WHERE customer_id = :customerId", nativeQuery = true)
+    void updateCreatedAt(@Param("customerId") Long customerId, @Param("createdAt") LocalDateTime createdAt);
 }

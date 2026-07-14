@@ -65,6 +65,8 @@ class AutoWashProBeApplicationTests {
     private CustomerFeedbackRepository customerFeedbackRepository;
     @Autowired
     private CustomerPromotionRepository customerPromotionRepository;
+    @Autowired
+    private com.autowashpro.autowashpro_be.modules.booking.scheduler.OverdueBookingScheduler overdueBookingScheduler;
 
     @Test
     void testBidirectionalNotifications() {
@@ -251,6 +253,158 @@ class AutoWashProBeApplicationTests {
                 System.out.println("Cleanup completed.");
             } catch (Exception ex) {
                 System.err.println("Error cleaning up test data: " + ex.getMessage());
+            }
+        }
+    }
+
+    @Test
+    void testNoShowViolationPenalties() {
+        System.out.println("====== START INTEGRATION TESTING FOR NO-SHOW PENALTIES ======");
+        
+        Customer customer = customerRepository.findByPhoneNumber("0902000001")
+                .orElseThrow(() -> new AssertionError("Seeded customer not found"));
+        TimeSlot slot = timeSlotRepository.findAll().stream().findFirst()
+                .orElseThrow(() -> new AssertionError("No time slots available"));
+
+        int originalPoints = customer.getLoyaltyPoints() != null ? customer.getLoyaltyPoints() : 0;
+        // Đặt điểm ban đầu của khách hàng về 100 để test trừ điểm dễ dàng
+        customer.setLoyaltyPoints(100);
+        customerRepository.save(customer);
+
+        // Đảm bảo không có đơn No-Show nào trong 30 ngày qua trước khi test
+        List<com.autowashpro.autowashpro_be.modules.booking.entity.Booking> initialNoShows = bookingRepository.findAll().stream()
+                .filter(b -> b.getCustomer().getCustomerId().equals(customer.getCustomerId()) && b.getStatus() == BookingStatus.CANCELLED_NO_SHOW)
+                .toList();
+        bookingRepository.deleteAll(initialNoShows);
+
+        Long bookingId1 = null;
+        Long bookingId2 = null;
+        Long bookingId3 = null;
+
+        try {
+            // ========================================================
+            // VI PHẠM LẦN 1: Tạo Booking 1, chuyển về hôm qua để quá hạn
+            // ========================================================
+            CreateBookingRequest bookingReq1 = CreateBookingRequest.builder()
+                    .bookingDate(LocalDate.now().plusDays(5)) // Tương lai gần
+                    .timeSlotId(slot.getSlotId())
+                    .licensePlate("51A-12345")
+                    .model("Honda SH 150i")
+                    .packageId(1L)
+                    .notes("Test No-Show 1")
+                    .build();
+
+            BookingResponse bookingRes1 = bookingService.createBooking(bookingReq1, customer);
+            assertNotNull(bookingRes1);
+            bookingId1 = bookingRes1.getBookingId();
+
+            // Set ngày đặt lịch về hôm qua để scheduler đánh dấu quá hạn
+            com.autowashpro.autowashpro_be.modules.booking.entity.Booking booking1 = bookingRepository.findById(bookingId1).orElseThrow();
+            booking1.setBookingDate(LocalDate.now().minusDays(1));
+            bookingRepository.saveAndFlush(booking1);
+
+            // Chạy scheduler để hủy No-Show
+            overdueBookingScheduler.cancelOverdueBookings();
+
+            // Verify đơn 1 chuyển sang CANCELLED_NO_SHOW
+            com.autowashpro.autowashpro_be.modules.booking.entity.Booking bookingAfter1 = bookingRepository.findById(bookingId1).orElseThrow();
+            assertEquals(BookingStatus.CANCELLED_NO_SHOW, bookingAfter1.getStatus());
+
+            // Verify Lần 1: Không trừ điểm Loyalty
+            Customer customerAfter1 = customerRepository.findById(customer.getCustomerId()).orElseThrow();
+            assertEquals(100, customerAfter1.getLoyaltyPoints(), "First No-Show should not deduct points");
+
+            // ========================================================
+            // VI PHẠM LẦN 2: Tạo Booking 2, chuyển về hôm qua để quá hạn
+            // ========================================================
+            CreateBookingRequest bookingReq2 = CreateBookingRequest.builder()
+                    .bookingDate(LocalDate.now().plusDays(5))
+                    .timeSlotId(slot.getSlotId())
+                    .licensePlate("51A-12345")
+                    .model("Honda SH 150i")
+                    .packageId(1L)
+                    .notes("Test No-Show 2")
+                    .build();
+
+            BookingResponse bookingRes2 = bookingService.createBooking(bookingReq2, customer);
+            assertNotNull(bookingRes2);
+            bookingId2 = bookingRes2.getBookingId();
+
+            com.autowashpro.autowashpro_be.modules.booking.entity.Booking booking2 = bookingRepository.findById(bookingId2).orElseThrow();
+            booking2.setBookingDate(LocalDate.now().minusDays(1));
+            bookingRepository.saveAndFlush(booking2);
+
+            overdueBookingScheduler.cancelOverdueBookings();
+
+            // Verify Lần 2: Trừ 10 điểm Loyalty (100 - 10 = 90)
+            Customer customerAfter2 = customerRepository.findById(customer.getCustomerId()).orElseThrow();
+            assertEquals(90, customerAfter2.getLoyaltyPoints(), "Second No-Show should deduct 10 points");
+
+            // ========================================================
+            // VI PHẠM LẦN 3: Tạo Booking 3, chuyển về hôm qua để quá hạn
+            // ========================================================
+            CreateBookingRequest bookingReq3 = CreateBookingRequest.builder()
+                    .bookingDate(LocalDate.now().plusDays(5))
+                    .timeSlotId(slot.getSlotId())
+                    .licensePlate("51A-12345")
+                    .model("Honda SH 150i")
+                    .packageId(1L)
+                    .notes("Test No-Show 3")
+                    .build();
+
+            BookingResponse bookingRes3 = bookingService.createBooking(bookingReq3, customer);
+            assertNotNull(bookingRes3);
+            bookingId3 = bookingRes3.getBookingId();
+
+            com.autowashpro.autowashpro_be.modules.booking.entity.Booking booking3 = bookingRepository.findById(bookingId3).orElseThrow();
+            booking3.setBookingDate(LocalDate.now().minusDays(1));
+            bookingRepository.saveAndFlush(booking3);
+
+            overdueBookingScheduler.cancelOverdueBookings();
+
+            // Verify Lần 3: Trừ thêm 10 điểm Loyalty (90 - 10 = 80)
+            Customer customerAfter3 = customerRepository.findById(customer.getCustomerId()).orElseThrow();
+            assertEquals(80, customerAfter3.getLoyaltyPoints(), "Third No-Show should deduct 10 points");
+
+            // ========================================================
+            // KIỂM TRA KHÓA ĐẶT LỊCH: Tạo Booking 4 phải báo lỗi bị chặn
+            // ========================================================
+            CreateBookingRequest bookingReq4 = CreateBookingRequest.builder()
+                    .bookingDate(LocalDate.now().plusDays(5))
+                    .timeSlotId(slot.getSlotId())
+                    .licensePlate("51A-12345")
+                    .model("Honda SH 150i")
+                    .packageId(1L)
+                    .notes("Test No-Show 4 - should fail")
+                    .build();
+
+            Exception exception = assertThrows(Exception.class, () -> {
+                bookingService.createBooking(bookingReq4, customerAfter3);
+            });
+
+            System.out.println("Booking 4 block exception message: " + exception.getMessage());
+            assertTrue(exception.getMessage().contains("tạm khóa tính năng đặt lịch online"), 
+                    "Should contain ban message");
+
+        } finally {
+            // Dọn dẹp dữ liệu test
+            System.out.println("Cleaning up No-Show test data...");
+            try {
+                if (bookingId1 != null) bookingRepository.deleteById(bookingId1);
+                if (bookingId2 != null) bookingRepository.deleteById(bookingId2);
+                if (bookingId3 != null) bookingRepository.deleteById(bookingId3);
+                customer.setLoyaltyPoints(originalPoints);
+                customerRepository.save(customer);
+
+                List<Notification> allNotifs = notificationRepository.findAll();
+                for (Notification n : allNotifs) {
+                    if (n.getNotificationId() > 7) {
+                        notificationRepository.delete(n);
+                    }
+                }
+                System.out.println("Cleanup No-Show completed.");
+            } catch (Exception ex) {
+                System.err.println("Error cleaning up No-Show test data: " + ex.getMessage());
             }
         }
     }
