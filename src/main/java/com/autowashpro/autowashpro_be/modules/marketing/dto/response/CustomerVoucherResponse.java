@@ -25,4 +25,8 @@ public class CustomerVoucherResponse {
     private CustomerPromotionStatus status;
     private CustomerPromotionSource source;
     private boolean isExpired;
+    private String applicableServiceCode;
+    private String applicableDays;
+    private BigDecimal maxDiscountAmount;
+    private BigDecimal minOrderValue;
 }

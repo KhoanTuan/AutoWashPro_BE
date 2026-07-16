@@ -23,6 +23,7 @@ import com.autowashpro.autowashpro_be.modules.booking.event.BookingEventAction;
 import com.autowashpro.autowashpro_be.modules.booking.event.SlotCapacityChangeEvent;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotion;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotionStatus;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotionSource;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.DiscountType;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.Promotion;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.PromotionStatus;
@@ -292,6 +293,35 @@ public class BookingService {
                 throw new BadRequestException("Mã giảm giá '" + code + "' đã quá hạn sử dụng!");
             }
 
+            // 1. Ràng buộc gói dịch vụ (applicableServiceCode)
+            if (promotion.getApplicableServiceCode() != null && !promotion.getApplicableServiceCode().trim().isEmpty()) {
+                String reqServiceCode = packageService.getServiceCode();
+                if (!promotion.getApplicableServiceCode().trim().equalsIgnoreCase(reqServiceCode)) {
+                    throw new BadRequestException("Mã ưu đãi này chỉ áp dụng cho gói dịch vụ: " + promotion.getApplicableServiceCode());
+                }
+            }
+
+            // 2. Ràng buộc ngày trong tuần (applicableDays)
+            if (promotion.getApplicableDays() != null && !promotion.getApplicableDays().trim().isEmpty()) {
+                String bookingDayOfWeek = request.getBookingDate().getDayOfWeek().name().substring(0, 3).toUpperCase();
+                String appDays = promotion.getApplicableDays().toUpperCase();
+                if (!appDays.contains(bookingDayOfWeek)) {
+                    throw new BadRequestException("Mã ưu đãi này chỉ áp dụng cho các ngày: " + promotion.getApplicableDays());
+                }
+            }
+
+            // 3. Ràng buộc giá trị đơn hàng tối thiểu (minOrderValue)
+            // Chỉ áp dụng cho các voucher tiếp thị/phát tặng miễn phí (costPoints == 0),
+            // bỏ qua cho các voucher đổi bằng điểm Loyalty (đã tự trả giá bằng điểm).
+            if (promotion.getMinOrderValue() != null && promotion.getMinOrderValue().compareTo(BigDecimal.ZERO) > 0) {
+                boolean isPointsExchange = (promotion.getCostPoints() != null && promotion.getCostPoints() > 0)
+                        || (customerPromotion.getSource() == CustomerPromotionSource.EXCHANGE);
+                if (!isPointsExchange && totalAmount.compareTo(promotion.getMinOrderValue()) < 0) {
+                    throw new BadRequestException("Mã ưu đãi này chỉ áp dụng cho đơn hàng từ " + 
+                            promotion.getMinOrderValue().setScale(0, java.math.RoundingMode.HALF_UP).toString() + " đ trở lên!");
+                }
+            }
+
             // Calculate discount
             if (promotion.getDiscountType() == DiscountType.FIXED_AMOUNT) {
                 discountAmount = promotion.getValue();
@@ -300,6 +330,12 @@ public class BookingService {
                 }
             } else if (promotion.getDiscountType() == DiscountType.PERCENTAGE) {
                 discountAmount = totalAmount.multiply(promotion.getValue()).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                // Áp dụng trần giảm tối đa (maxDiscountAmount) nếu có
+                if (promotion.getMaxDiscountAmount() != null && promotion.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    if (discountAmount.compareTo(promotion.getMaxDiscountAmount()) > 0) {
+                        discountAmount = promotion.getMaxDiscountAmount();
+                    }
+                }
             } else if (promotion.getDiscountType() == DiscountType.FREE_SERVICE) {
                 discountAmount = totalAmount;
             }

@@ -22,6 +22,8 @@ public interface CustomerPromotionRepository extends JpaRepository<CustomerPromo
 
     long countByCustomerCustomerIdAndPromotionId(Long customerId, Long promotionId);
 
+    boolean existsByCustomerCustomerIdAndPromotionIdAndStatus(Long customerId, Long promotionId, CustomerPromotionStatus status);
+
     long countBySourceIn(List<CustomerPromotionSource> sources);
 
     long countByStatus(CustomerPromotionStatus status);

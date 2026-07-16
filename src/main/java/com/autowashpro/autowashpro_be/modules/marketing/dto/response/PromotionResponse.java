@@ -31,4 +31,8 @@ public class PromotionResponse {
     private PromotionStatus status;
     private String budgetStatus;
     private Double redemptionRate;
+    private String applicableServiceCode;
+    private String applicableDays;
+    private BigDecimal maxDiscountAmount;
+    private BigDecimal minOrderValue;
 }

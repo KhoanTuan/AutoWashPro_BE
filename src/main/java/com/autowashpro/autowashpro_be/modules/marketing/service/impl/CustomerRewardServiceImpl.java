@@ -44,6 +44,7 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
             int reqRank = getTierRank(p.getMinTier());
             int cost = p.getCostPoints() != null ? p.getCostPoints() : 0;
             long claimed = customerPromotionRepository.countByCustomerCustomerIdAndPromotionId(customerId, p.getId());
+            boolean hasActive = customerPromotionRepository.existsByCustomerCustomerIdAndPromotionIdAndStatus(customerId, p.getId(), CustomerPromotionStatus.ISSUED);
             int maxClaim = p.getMaxClaimPerUser() != null ? p.getMaxClaimPerUser() : 1;
 
             boolean isUnlocked = true;
@@ -53,6 +54,9 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
             if (p.getMaxClaimPerUser() != null && claimed >= p.getMaxClaimPerUser()) {
                 isUnlocked = false;
                 tooltip = "🔒 Bạn đã lấy tối đa " + p.getMaxClaimPerUser() + " lần cho mã quà tặng này.";
+            } else if (hasActive) {
+                isUnlocked = false;
+                tooltip = "🔒 Bạn đang sở hữu 1 voucher này trong ví. Hãy sử dụng trước khi nhận thêm!";
             } else if (customerRank < reqRank) {
                 isUnlocked = false;
                 tooltip = "🔒 Độc quyền cho thành viên hạng " + p.getMinTier() + " trở lên.";
@@ -77,6 +81,10 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
                     .isUnlocked(isUnlocked)
                     .isGrayscale(!isUnlocked)
                     .unlockTooltip(tooltip)
+                    .applicableServiceCode(p.getApplicableServiceCode())
+                    .applicableDays(p.getApplicableDays())
+                    .maxDiscountAmount(p.getMaxDiscountAmount())
+                    .minOrderValue(p.getMinOrderValue())
                     .build();
         }).collect(Collectors.toList());
     }
@@ -102,6 +110,12 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
             if (claimed >= promotion.getMaxClaimPerUser()) {
                 throw new IllegalStateException("Bạn đã nhận đủ số lượng tối đa (" + promotion.getMaxClaimPerUser() + " lần) cho ưu đãi này.");
             }
+        }
+
+        // Khóa sở hữu đồng thời (Coexistence Lock): Khách phải dùng voucher cũ trước khi nhận thêm cái mới
+        boolean hasActive = customerPromotionRepository.existsByCustomerCustomerIdAndPromotionIdAndStatus(customerId, promotionId, CustomerPromotionStatus.ISSUED);
+        if (hasActive) {
+            throw new IllegalStateException("Bạn đang sở hữu 1 voucher này trong ví chưa sử dụng. Hãy dùng trước khi nhận thêm!");
         }
 
         // totalBudget == null → vô hạn, bỏ qua kiểm tra
@@ -170,6 +184,12 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
             if (claimed >= promotion.getMaxClaimPerUser()) {
                 throw new IllegalStateException("Bạn đã nhận đủ số lượng tối đa (" + promotion.getMaxClaimPerUser() + " lần) cho ưu đãi này.");
             }
+        }
+
+        // Khóa sở hữu đồng thời (Coexistence Lock): Khách phải dùng voucher cũ trước khi nhận thêm cái mới
+        boolean hasActive = customerPromotionRepository.existsByCustomerCustomerIdAndPromotionIdAndStatus(customerId, promotionId, CustomerPromotionStatus.ISSUED);
+        if (hasActive) {
+            throw new IllegalStateException("Bạn đang sở hữu 1 voucher này trong ví chưa sử dụng. Hãy dùng trước khi nhận thêm!");
         }
 
         // totalBudget == null → vô hạn, bỏ qua kiểm tra
@@ -259,6 +279,10 @@ public class CustomerRewardServiceImpl implements CustomerRewardService {
                 .status(cp.getStatus())
                 .source(cp.getSource())
                 .isExpired(isExpired)
+                .applicableServiceCode(p != null ? p.getApplicableServiceCode() : null)
+                .applicableDays(p != null ? p.getApplicableDays() : null)
+                .maxDiscountAmount(p != null ? p.getMaxDiscountAmount() : null)
+                .minOrderValue(p != null ? p.getMinOrderValue() : null)
                 .build();
     }
 }

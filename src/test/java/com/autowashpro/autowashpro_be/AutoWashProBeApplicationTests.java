@@ -8,6 +8,7 @@ import com.autowashpro.autowashpro_be.modules.booking.repository.BookingReposito
 import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
 import com.autowashpro.autowashpro_be.modules.booking.service.BookingService;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
+import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.marketing.dto.request.CustomerFeedbackCreateRequest;
 import com.autowashpro.autowashpro_be.modules.marketing.dto.request.FeedbackResolveRequest;
@@ -17,6 +18,9 @@ import com.autowashpro.autowashpro_be.modules.marketing.dto.response.PromotionRe
 import com.autowashpro.autowashpro_be.modules.marketing.entity.DiscountType;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.Promotion;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.PromotionStatus;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotion;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotionSource;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotionStatus;
 import com.autowashpro.autowashpro_be.modules.marketing.repository.CustomerFeedbackRepository;
 import com.autowashpro.autowashpro_be.modules.marketing.repository.CustomerPromotionRepository;
 import com.autowashpro.autowashpro_be.modules.marketing.repository.PromotionRepository;
@@ -30,6 +34,7 @@ import com.autowashpro.autowashpro_be.modules.notification.repository.Notificati
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -148,6 +153,7 @@ class AutoWashProBeApplicationTests {
             promoReq.setDescription("Giảm giá 10% cho tất cả dịch vụ");
             promoReq.setDiscountType(DiscountType.PERCENTAGE);
             promoReq.setValue(BigDecimal.valueOf(10));
+            promoReq.setMaxDiscountAmount(BigDecimal.valueOf(20000));
             promoReq.setCostPoints(50);
             promoReq.setMinTier("Member");
             promoReq.setStartDate(LocalDateTime.now());
@@ -406,6 +412,125 @@ class AutoWashProBeApplicationTests {
             } catch (Exception ex) {
                 System.err.println("Error cleaning up No-Show test data: " + ex.getMessage());
             }
+        }
+    }
+
+    @Test
+    void testMinOrderValueConstraints() {
+        System.out.println("====== START INTEGRATION TESTING FOR MIN_ORDER_VALUE CONSTRAINTS ======");
+        
+        Customer customer = customerRepository.findByPhoneNumber("0902000001")
+                .orElseThrow(() -> new AssertionError("Seeded customer not found"));
+        TimeSlot slot = timeSlotRepository.findAll().stream().findFirst()
+                .orElseThrow(() -> new AssertionError("No time slots available"));
+
+        // Save original status
+        CustomerStatus originalStatus = customer.getStatus();
+        customer.setStatus(CustomerStatus.ACTIVE); // Ensure active to avoid lockout blocks
+        customerRepository.save(customer);
+
+        // 1. Create a promotion with minOrderValue = 50000
+        Promotion promo = Promotion.builder()
+                .code("MIN_ORDER_TEST")
+                .name("Voucher giảm 10k cho đơn từ 50k")
+                .discountType(DiscountType.FIXED_AMOUNT)
+                .value(BigDecimal.valueOf(10000))
+                .minOrderValue(BigDecimal.valueOf(50000))
+                .costPoints(0)
+                .status(PromotionStatus.ACTIVE)
+                .startDate(LocalDateTime.now().minusDays(1))
+                .endDate(LocalDateTime.now().plusDays(30))
+                .build();
+        Promotion savedPromo = promotionRepository.save(promo);
+
+        // 2. Issue this voucher to the customer (CLAIM source)
+        CustomerPromotion claimCp = CustomerPromotion.builder()
+                .customer(customer)
+                .promotion(savedPromo)
+                .voucherCode("VOU-MIN-ORDER-CLAIM")
+                .source(CustomerPromotionSource.CLAIM)
+                .status(CustomerPromotionStatus.ISSUED)
+                .expiryDate(LocalDateTime.now().plusDays(30))
+                .build();
+        customerPromotionRepository.save(claimCp);
+
+        // 3. Issue a POINTS_EXCHANGE source voucher to the customer for the same promotion
+        CustomerPromotion exchangeCp = CustomerPromotion.builder()
+                .customer(customer)
+                .promotion(savedPromo)
+                .voucherCode("VOU-MIN-ORDER-EXCHANGE")
+                .source(CustomerPromotionSource.EXCHANGE)
+                .status(CustomerPromotionStatus.ISSUED)
+                .expiryDate(LocalDateTime.now().plusDays(30))
+                .build();
+        customerPromotionRepository.save(exchangeCp);
+
+        Long bookingId = null;
+        try {
+            // Test 3.1: Use CLAIM voucher on a standard package (30k) -> Should fail because 30k < 50k
+            CreateBookingRequest failReq = CreateBookingRequest.builder()
+                    .bookingDate(LocalDate.now().plusDays(6))
+                    .timeSlotId(slot.getSlotId())
+                    .licensePlate("51A-12345")
+                    .model("Honda SH 150i")
+                    .packageId(1L) // Standard: 30k
+                    .voucherCode("VOU-MIN-ORDER-CLAIM")
+                    .build();
+
+            Exception ex = assertThrows(Exception.class, () -> {
+                bookingService.createBooking(failReq, customer);
+            });
+            System.out.println("Exception message for sub-min order: " + ex.getMessage());
+            assertTrue(ex.getMessage().contains("chỉ áp dụng cho đơn hàng từ 50000"), "Should contain min order value message");
+
+            // Test 3.2: Use CLAIM voucher on a deluxe package (50k) -> Should succeed
+            CreateBookingRequest successReq = CreateBookingRequest.builder()
+                    .bookingDate(LocalDate.now().plusDays(6))
+                    .timeSlotId(slot.getSlotId())
+                    .licensePlate("51A-12345")
+                    .model("Honda SH 150i")
+                    .packageId(2L) // Deluxe: 50k
+                    .voucherCode("VOU-MIN-ORDER-CLAIM")
+                    .build();
+
+            BookingResponse successRes = bookingService.createBooking(successReq, customer);
+            assertNotNull(successRes);
+            assertEquals(BigDecimal.valueOf(10000).doubleValue(), successRes.getDiscountAmount().doubleValue(), 0.01);
+            assertEquals(BigDecimal.valueOf(40000).doubleValue(), successRes.getFinalAmount().doubleValue(), 0.01);
+            bookingId = successRes.getBookingId();
+
+            // Test 3.3: Use EXCHANGE voucher on a standard package (30k) -> Should succeed (bypassed)
+            CreateBookingRequest bypassReq = CreateBookingRequest.builder()
+                    .bookingDate(LocalDate.now().plusDays(7))
+                    .timeSlotId(slot.getSlotId())
+                    .licensePlate("51A-12345")
+                    .model("Honda SH 150i")
+                    .packageId(1L) // Standard: 30k
+                    .voucherCode("VOU-MIN-ORDER-EXCHANGE")
+                    .build();
+
+            BookingResponse bypassRes = bookingService.createBooking(bypassReq, customer);
+            assertNotNull(bypassRes);
+            assertEquals(BigDecimal.valueOf(10000).doubleValue(), bypassRes.getDiscountAmount().doubleValue(), 0.01);
+            assertEquals(BigDecimal.valueOf(20000).doubleValue(), bypassRes.getFinalAmount().doubleValue(), 0.01);
+            bookingRepository.deleteById(bypassRes.getBookingId());
+
+        } finally {
+            // Clean up
+            System.out.println("Cleaning up min order test data...");
+            if (bookingId != null) {
+                try {
+                    bookingRepository.deleteById(bookingId);
+                } catch (Exception ignored) {}
+            }
+            try {
+                customerPromotionRepository.delete(claimCp);
+                customerPromotionRepository.delete(exchangeCp);
+                promotionRepository.delete(savedPromo);
+                customer.setStatus(originalStatus);
+                customerRepository.save(customer);
+            } catch (Exception ignored) {}
+            System.out.println("Cleanup min order completed.");
         }
     }
 }

@@ -36,4 +36,8 @@ public class PromotionCreateRequest {
     private Integer totalBudget;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+    private String applicableServiceCode;
+    private String applicableDays;
+    private BigDecimal maxDiscountAmount;
+    private BigDecimal minOrderValue;
 }

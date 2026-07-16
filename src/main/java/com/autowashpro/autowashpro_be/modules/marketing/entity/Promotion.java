@@ -75,6 +75,18 @@ public class Promotion {
     @Builder.Default
     private PromotionStatus status = PromotionStatus.ACTIVE;
 
+    @Column(name = "applicable_service_code", length = 50)
+    private String applicableServiceCode;
+
+    @Column(name = "applicable_days", length = 100)
+    private String applicableDays;
+
+    @Column(name = "max_discount_amount", precision = 12, scale = 2)
+    private BigDecimal maxDiscountAmount;
+
+    @Column(name = "min_order_value", precision = 12, scale = 2)
+    private BigDecimal minOrderValue;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -24,4 +24,8 @@ public class CustomerRewardShopResponse {
     private boolean isUnlocked;
     private boolean isGrayscale;
     private String unlockTooltip;
+    private String applicableServiceCode;
+    private String applicableDays;
+    private BigDecimal maxDiscountAmount;
+    private BigDecimal minOrderValue;
 }
