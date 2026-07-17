@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface GarageClosureRepository extends JpaRepository<GarageClosure, Long> {
     Optional<GarageClosure> findByClosureDate(LocalDate closureDate);
     boolean existsByClosureDate(LocalDate closureDate);
+    int deleteByClosureDateBefore(LocalDate closureDate);
 }

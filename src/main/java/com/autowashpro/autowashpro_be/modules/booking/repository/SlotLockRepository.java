@@ -12,4 +12,5 @@ import java.util.Optional;
 public interface SlotLockRepository extends JpaRepository<SlotLock, Long> {
     Optional<SlotLock> findByLockDateAndTimeSlotSlotId(LocalDate lockDate, Long slotId);
     List<SlotLock> findAllByLockDate(LocalDate lockDate);
+    int deleteByLockDateBefore(LocalDate lockDate);
 }

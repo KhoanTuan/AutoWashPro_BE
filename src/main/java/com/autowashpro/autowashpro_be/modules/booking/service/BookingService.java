@@ -6,6 +6,7 @@ import com.autowashpro.autowashpro_be.modules.booking.dto.BookingItemResponse;
 import com.autowashpro.autowashpro_be.modules.booking.dto.BookingResponse;
 import com.autowashpro.autowashpro_be.modules.booking.dto.CreateBookingRequest;
 import com.autowashpro.autowashpro_be.modules.booking.dto.SlotAvailabilityResponse;
+import com.autowashpro.autowashpro_be.modules.booking.dto.SlotLockResponse;
 import com.autowashpro.autowashpro_be.modules.booking.dto.SlotOccupancyResponse;
 import com.autowashpro.autowashpro_be.modules.booking.entity.*;
 import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
@@ -30,6 +31,7 @@ import com.autowashpro.autowashpro_be.modules.marketing.entity.PromotionStatus;
 import com.autowashpro.autowashpro_be.modules.marketing.repository.CustomerPromotionRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -81,9 +83,12 @@ public class BookingService {
                 continue;
             }
 
+            int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slot.getSlotId())
+                    .map(SlotLock::getLockCount)
+                    .orElse(0);
             int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                     date, slot.getSlotId(), ACTIVE_CAPACITY_STATUSES);
-            int availableCapacity = Math.max(0, slot.getMaxCapacity() - bookedCount);
+            int availableCapacity = Math.max(0, slot.getMaxCapacity() - bookedCount - lockedCount);
 
             boolean isPast = date.isEqual(LocalDate.now()) && slot.getStartTime().isBefore(LocalTime.now());
             boolean isFull = availableCapacity <= 0;
@@ -187,10 +192,13 @@ public class BookingService {
             throw new BadRequestException("Khung giờ này đã qua trong ngày hôm nay");
         }
 
+        int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(request.getBookingDate(), slot.getSlotId())
+                .map(SlotLock::getLockCount)
+                .orElse(0);
         int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                 request.getBookingDate(), slot.getSlotId(), ACTIVE_CAPACITY_STATUSES);
-        if (bookedCount >= slot.getMaxCapacity()) {
-            throw new BadRequestException("Khung giờ này đã đầy xe (" + bookedCount + "/" + slot.getMaxCapacity() + "), vui lòng chọn khung giờ khác!");
+        if (bookedCount + lockedCount >= slot.getMaxCapacity()) {
+            throw new BadRequestException("Khung giờ này đã đầy xe (Đã đặt: " + bookedCount + ", Đã khóa: " + lockedCount + "/" + slot.getMaxCapacity() + "), vui lòng chọn khung giờ khác!");
         }
 
         int maxDailyBookings = (customer != null && customer.getTier() != null && customer.getTier().getTierName() != null) ? switch (customer.getTier().getTierName().toUpperCase()) {
@@ -549,23 +557,41 @@ public class BookingService {
                     .map(SlotLock::getLockCount)
                     .orElse(0);
 
+            boolean isLocked = (lockedCount > 0);
+
             responses.add(SlotOccupancyResponse.builder()
                     .slotId(slot.getSlotId())
                     .startTime(slot.getStartTime())
-                    .endTime(slot.getEndTime())
                     .maxCapacity(slot.getMaxCapacity())
                     .bookedCount(bookedCount)
-                    .lockedCount(lockedCount)
                     .isActive(slot.getIsActive())
+                    .isLocked(isLocked)
                     .build());
         }
         return responses;
     }
 
     @Transactional
-    public SlotOccupancyResponse adjustLock(LocalDate date, Long slotId, int adjustment) {
+    public SlotOccupancyResponse adjustLock(LocalDate date, Long slotId, boolean lock) {
+        if (date.isBefore(LocalDate.now())) {
+            throw new BadRequestException("Không thể thiết lập khóa slot cho ngày trong quá khứ!");
+        }
+
+        // Ràng buộc nghiệp vụ: Không cho phép khóa slot nếu ngày đó đã đóng cửa toàn bộ trạm nghỉ lễ/bảo trì
+        Optional<GarageClosure> closureOpt = garageClosureRepository.findByClosureDate(date);
+        if (closureOpt.isPresent() && Boolean.TRUE.equals(closureOpt.get().getIsFullDay())) {
+            throw new BadRequestException("Ngày " + date + " đã đóng cửa toàn bộ trạm nghỉ lễ/bảo trì. Không cần khóa slot lẻ!");
+        }
+
         TimeSlot slot = timeSlotRepository.findById(slotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung giờ với ID: " + slotId));
+
+        int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
+                date, slotId, ACTIVE_CAPACITY_STATUSES);
+
+        if (lock && bookedCount >= slot.getMaxCapacity()) {
+            throw new BadRequestException("Khung giờ này đã đầy công suất đặt lịch (" + bookedCount + "/" + slot.getMaxCapacity() + "). Không thể khóa thêm chỗ trống!");
+        }
 
         SlotLock slotLock = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slotId)
                 .orElseGet(() -> SlotLock.builder()
@@ -574,28 +600,22 @@ public class BookingService {
                         .lockCount(0)
                         .build());
 
-        int newCount = Math.max(0, slotLock.getLockCount() + adjustment);
-        
-        int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
-                date, slotId, ACTIVE_CAPACITY_STATUSES);
-        
-        if (newCount + bookedCount > slot.getMaxCapacity()) {
-            throw new BadRequestException("Tổng số chỗ đã khóa và đã đặt không được vượt quá công suất tối đa của khung giờ (" + slot.getMaxCapacity() + ")");
-        }
+        int newCount = lock ? Math.max(0, slot.getMaxCapacity() - bookedCount) : 0;
 
         slotLock.setLockCount(newCount);
         slotLockRepository.save(slotLock);
 
-        eventPublisher.publishEvent(new SlotCapacityChangeEvent(this, date, slotId));
+        eventPublisher.publishEvent(new SlotCapacityChangeEvent(date, slotId));
+
+        boolean isLocked = (newCount > 0);
 
         return SlotOccupancyResponse.builder()
                 .slotId(slot.getSlotId())
                 .startTime(slot.getStartTime())
-                .endTime(slot.getEndTime())
                 .maxCapacity(slot.getMaxCapacity())
                 .bookedCount(bookedCount)
-                .lockedCount(newCount)
                 .isActive(slot.getIsActive())
+                .isLocked(isLocked)
                 .build();
     }
 
@@ -694,5 +714,35 @@ public class BookingService {
         return list.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SlotLockResponse> getAllSlotLocks() {
+        return slotLockRepository.findAll().stream()
+                .filter(lock -> lock.getLockCount() > 0)
+                .map(lock -> SlotLockResponse.builder()
+                        .closureId(lock.getSlotLockId())
+                        .closureDate(lock.getLockDate())
+                        .reason("Khóa khung giờ " + lock.getTimeSlot().getStartTime())
+                        .isFullDay(false)
+                        .slotId(lock.getTimeSlot().getSlotId())
+                        .startTime(lock.getTimeSlot().getStartTime().toString())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Scheduled(cron = "0 0 0 * * ?") // Chạy tự động vào lúc 00:00 nửa đêm hàng ngày
+    @Transactional
+    public void autoCleanPastClosuresAndLocks() {
+        LocalDate today = LocalDate.now();
+        try {
+            int deletedClosures = garageClosureRepository.deleteByClosureDateBefore(today);
+            int deletedLocks = slotLockRepository.deleteByLockDateBefore(today);
+            if (deletedClosures > 0 || deletedLocks > 0) {
+                log.info("Auto-cleanup completed: Deleted {} past closures and {} past slot locks.", deletedClosures, deletedLocks);
+            }
+        } catch (Exception e) {
+            log.error("Failed to run scheduled auto-cleanup for past closures/locks", e);
+        }
     }
 }

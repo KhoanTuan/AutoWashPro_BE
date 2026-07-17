@@ -1,5 +1,6 @@
 package com.autowashpro.autowashpro_be.modules.booking.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
@@ -17,10 +18,8 @@ public class SlotOccupancyResponse {
     private Long slotId;
 
     @JsonProperty("startTime")
+    @JsonFormat(pattern = "HH:mm")
     private LocalTime startTime;
-
-    @JsonProperty("endTime")
-    private LocalTime endTime;
 
     @JsonProperty("maxCapacity")
     private Integer maxCapacity;
@@ -28,9 +27,9 @@ public class SlotOccupancyResponse {
     @JsonProperty("bookedCount")
     private Integer bookedCount;
 
-    @JsonProperty("lockedCount")
-    private Integer lockedCount;
-
     @JsonProperty("isActive")
     private Boolean isActive;
+
+    @JsonProperty("isLocked")
+    private Boolean isLocked;
 }

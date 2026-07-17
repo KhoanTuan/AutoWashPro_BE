@@ -55,13 +55,20 @@ public class AdminBookingController {
         return ResponseEntity.ok(bookingService.getOccupancyMonitor(date));
     }
 
-    @Operation(summary = "Điều chỉnh khóa slot thủ công", description = "Quản trị viên / Quản lý tăng/giảm khóa số lượng slot tối đa phục vụ bảo trì bến rửa")
+    @Operation(summary = "Điều chỉnh khóa slot thủ công (ON/OFF)", description = "Quản trị viên / Quản lý khóa hoặc mở khóa toàn bộ công suất trống còn lại của slot")
     @PostMapping("/slots/{id}/lock")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<SlotOccupancyResponse> adjustLock(
             @PathVariable("id") Long slotId,
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam("adjustment") int adjustment) {
-        return ResponseEntity.ok(bookingService.adjustLock(date, slotId, adjustment));
+            @RequestParam("lock") boolean lock) {
+        return ResponseEntity.ok(bookingService.adjustLock(date, slotId, lock));
+    }
+
+    @Operation(summary = "Lấy danh sách tất cả các slot đang bị khóa", description = "Lấy tất cả các slot đang bị khóa thủ công")
+    @GetMapping("/slots/locks")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<List<com.autowashpro.autowashpro_be.modules.booking.dto.SlotLockResponse>> getAllSlotLocks() {
+        return ResponseEntity.ok(bookingService.getAllSlotLocks());
     }
 }

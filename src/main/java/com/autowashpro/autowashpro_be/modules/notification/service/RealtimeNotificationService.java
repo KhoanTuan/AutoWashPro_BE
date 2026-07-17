@@ -5,6 +5,8 @@ import com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus;
 import com.autowashpro.autowashpro_be.modules.booking.entity.TimeSlot;
 import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
+import com.autowashpro.autowashpro_be.modules.booking.repository.SlotLockRepository;
+import com.autowashpro.autowashpro_be.modules.booking.entity.SlotLock;
 import com.autowashpro.autowashpro_be.modules.notification.dto.*;
 import com.autowashpro.autowashpro_be.modules.notification.entity.Notification;
 import com.autowashpro.autowashpro_be.modules.notification.entity.NotificationRecipientType;
@@ -34,6 +36,7 @@ public class RealtimeNotificationService {
     private final NotificationRepository notificationRepository;
     private final TimeSlotRepository timeSlotRepository;
     private final BookingRepository bookingRepository;
+    private final SlotLockRepository slotLockRepository;
     private final Optional<SimpMessagingTemplate> messagingTemplate;
 
     private static final List<BookingStatus> ACTIVE_CAPACITY_STATUSES = Arrays.asList(
@@ -118,9 +121,12 @@ public class RealtimeNotificationService {
             if (messagingTemplate.isPresent()) {
                 TimeSlot slot = timeSlotRepository.findById(slotId).orElse(null);
                 if (slot != null) {
+                    int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slotId)
+                            .map(SlotLock::getLockCount)
+                            .orElse(0);
                     int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                             date, slotId, ACTIVE_CAPACITY_STATUSES);
-                    int availableCapacity = Math.max(0, slot.getMaxCapacity() - bookedCount);
+                    int availableCapacity = Math.max(0, slot.getMaxCapacity() - bookedCount - lockedCount);
                     boolean isFull = availableCapacity <= 0;
 
                     WsSlotCapacityMessage payload = WsSlotCapacityMessage.builder()
