@@ -1,4 +1,4 @@
-package com.autowashpro.autowashpro_be.modules.booking.service;
+﻿package com.autowashpro.autowashpro_be.modules.booking.service;
 
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
 import com.autowashpro.autowashpro_be.common.exception.ResourceNotFoundException;
@@ -31,6 +31,7 @@ import com.autowashpro.autowashpro_be.modules.marketing.entity.PromotionStatus;
 import com.autowashpro.autowashpro_be.modules.marketing.repository.CustomerPromotionRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import com.autowashpro.autowashpro_be.security.UserPrincipal;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -142,7 +143,7 @@ public class BookingService {
     public BookingResponse createBooking(CreateBookingRequest request, Customer customer) {
         validateBookingDate(request.getBookingDate(), customer);
 
-        // Kiểm tra xem khách hàng có đang bị phạt khóa đặt lịch 7 ngày hay không (do trễ hẹn No-Show >= 3 lần trong vòng 30 ngày)
+        // Kiá»ƒm tra xem khÃ¡ch hÃ ng cÃ³ Ä‘ang bá»‹ pháº¡t khÃ³a Ä‘áº·t lá»‹ch 7 ngÃ y hay khÃ´ng (do trá»… háº¹n No-Show >= 3 láº§n trong vÃ²ng 30 ngÃ y)
         java.time.LocalDateTime startOf30DaysAgo = java.time.LocalDateTime.now().minusDays(30);
         long noShowCount = bookingRepository.countByCustomerCustomerIdAndStatusInAndUpdatedAtAfter(
                 customer.getCustomerId(), 
@@ -156,12 +157,12 @@ public class BookingService {
                 java.time.LocalDateTime banUntil = latestNoShowOpt.get().getUpdatedAt().plusDays(7);
                 if (java.time.LocalDateTime.now().isBefore(banUntil)) {
                     java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-                    throw new BadRequestException("Tài khoản của bạn đã bị tạm khóa tính năng đặt lịch online đến " + banUntil.format(formatter) + " do vi phạm trễ hẹn (No-Show) " + noShowCount + " lần trong vòng 30 ngày qua!");
+                    throw new BadRequestException("TÃ i khoáº£n cá»§a báº¡n Ä‘Ã£ bá»‹ táº¡m khÃ³a tÃ­nh nÄƒng Ä‘áº·t lá»‹ch online Ä‘áº¿n " + banUntil.format(formatter) + " do vi pháº¡m trá»… háº¹n (No-Show) " + noShowCount + " láº§n trong vÃ²ng 30 ngÃ y qua!");
                 }
             }
         }
 
-        // Chặn spam đặt/hủy liên tục trong ngày (tối đa 3 lần/ngày)
+        // Cháº·n spam Ä‘áº·t/há»§y liÃªn tá»¥c trong ngÃ y (tá»‘i Ä‘a 3 láº§n/ngÃ y)
         java.time.LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
         long canceledToday = bookingRepository.countByCustomerCustomerIdAndStatusInAndUpdatedAtAfter(
                 customer.getCustomerId(), 
@@ -169,27 +170,27 @@ public class BookingService {
                 startOfToday
         );
         if (canceledToday >= 3) {
-            throw new BadRequestException("Tài khoản của bạn đã tự hủy " + canceledToday + " đơn đặt lịch trong ngày hôm nay. Để chống spam giữ chỗ, tài khoản bị tạm khóa tính năng đặt lịch cho đến ngày mai!");
+            throw new BadRequestException("TÃ i khoáº£n cá»§a báº¡n Ä‘Ã£ tá»± há»§y " + canceledToday + " Ä‘Æ¡n Ä‘áº·t lá»‹ch trong ngÃ y hÃ´m nay. Äá»ƒ chá»‘ng spam giá»¯ chá»—, tÃ i khoáº£n bá»‹ táº¡m khÃ³a tÃ­nh nÄƒng Ä‘áº·t lá»‹ch cho Ä‘áº¿n ngÃ y mai!");
         }
 
         Optional<GarageClosure> closureOpt = garageClosureRepository.findByClosureDate(request.getBookingDate());
         if (closureOpt.isPresent() && Boolean.TRUE.equals(closureOpt.get().getIsFullDay())) {
-            throw new BadRequestException("Xưởng đóng cửa nghỉ lễ trong ngày " + request.getBookingDate() + ". Lý do: " + closureOpt.get().getReason());
+            throw new BadRequestException("XÆ°á»Ÿng Ä‘Ã³ng cá»­a nghá»‰ lá»… trong ngÃ y " + request.getBookingDate() + ". LÃ½ do: " + closureOpt.get().getReason());
         }
 
         TimeSlot slot = timeSlotRepository.findById(request.getTimeSlotId())
                 .orElseThrow(() -> new ResourceNotFoundException("Time slot not found with id: " + request.getTimeSlotId()));
 
         if (!slot.getIsActive()) {
-            throw new BadRequestException("Khung giờ này đang tạm ngưng phục vụ hoặc bảo trì");
+            throw new BadRequestException("Khung giá» nÃ y Ä‘ang táº¡m ngÆ°ng phá»¥c vá»¥ hoáº·c báº£o trÃ¬");
         }
 
         if (!isSlotApplicableForDate(slot, request.getBookingDate())) {
-            throw new BadRequestException("Khung giờ này không áp dụng cho thứ/ngày được chọn (" + request.getBookingDate().getDayOfWeek() + ")");
+            throw new BadRequestException("Khung giá» nÃ y khÃ´ng Ã¡p dá»¥ng cho thá»©/ngÃ y Ä‘Æ°á»£c chá»n (" + request.getBookingDate().getDayOfWeek() + ")");
         }
 
         if (request.getBookingDate().isEqual(LocalDate.now()) && slot.getStartTime().isBefore(LocalTime.now())) {
-            throw new BadRequestException("Khung giờ này đã qua trong ngày hôm nay");
+            throw new BadRequestException("Khung giá» nÃ y Ä‘Ã£ qua trong ngÃ y hÃ´m nay");
         }
 
         int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(request.getBookingDate(), slot.getSlotId())
@@ -198,7 +199,7 @@ public class BookingService {
         int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                 request.getBookingDate(), slot.getSlotId(), ACTIVE_CAPACITY_STATUSES);
         if (bookedCount + lockedCount >= slot.getMaxCapacity()) {
-            throw new BadRequestException("Khung giờ này đã đầy xe (Đã đặt: " + bookedCount + ", Đã khóa: " + lockedCount + "/" + slot.getMaxCapacity() + "), vui lòng chọn khung giờ khác!");
+            throw new BadRequestException("Khung giá» nÃ y Ä‘Ã£ Ä‘áº§y xe (ÄÃ£ Ä‘áº·t: " + bookedCount + ", ÄÃ£ khÃ³a: " + lockedCount + "/" + slot.getMaxCapacity() + "), vui lÃ²ng chá»n khung giá» khÃ¡c!");
         }
 
         int maxDailyBookings = (customer != null && customer.getTier() != null && customer.getTier().getTierName() != null) ? switch (customer.getTier().getTierName().toUpperCase()) {
@@ -211,40 +212,40 @@ public class BookingService {
                 customer.getCustomerId(), request.getBookingDate(), ACTIVE_CAPACITY_STATUSES);
         if (customerTodayBookings >= maxDailyBookings) {
             String tierName = (customer != null && customer.getTier() != null && customer.getTier().getTierName() != null) ? customer.getTier().getTierName() : "REGULAR";
-            throw new BadRequestException("Tài khoản của bạn đang có " + customerTodayBookings + "/" + maxDailyBookings + " đơn đặt lịch đang giữ chỗ/chưa hoàn thành trong ngày " + 
-                    request.getBookingDate() + " (giới hạn theo hạng " + tierName + "). Vui lòng hoàn thành dịch vụ và thanh toán (hoặc hủy lịch cũ) trước khi đặt thêm!");
+            throw new BadRequestException("TÃ i khoáº£n cá»§a báº¡n Ä‘ang cÃ³ " + customerTodayBookings + "/" + maxDailyBookings + " Ä‘Æ¡n Ä‘áº·t lá»‹ch Ä‘ang giá»¯ chá»—/chÆ°a hoÃ n thÃ nh trong ngÃ y " + 
+                    request.getBookingDate() + " (giá»›i háº¡n theo háº¡ng " + tierName + "). Vui lÃ²ng hoÃ n thÃ nh dá»‹ch vá»¥ vÃ  thanh toÃ¡n (hoáº·c há»§y lá»‹ch cÅ©) trÆ°á»›c khi Ä‘áº·t thÃªm!");
         }
 
 
         String cleanPlate = request.getLicensePlate() != null ? request.getLicensePlate().trim().toUpperCase() : "";
         if (cleanPlate.length() < 5 || cleanPlate.length() > 20) {
-            throw new BadRequestException("Biển số xe phải từ 5 đến 20 ký tự (ví dụ: 29-H1 555.55)");
+            throw new BadRequestException("Biá»ƒn sá»‘ xe pháº£i tá»« 5 Ä‘áº¿n 20 kÃ½ tá»± (vÃ­ dá»¥: 29-H1 555.55)");
         }
         Optional<Vehicle> existingVehOpt = vehicleRepository.findByLicensePlateIgnoreCase(cleanPlate);
         if (existingVehOpt.isEmpty() || !existingVehOpt.get().getCustomer().getCustomerId().equals(customer.getCustomerId())) {
-            throw new BadRequestException("Biển số xe '" + cleanPlate + "' chưa có trong danh sách xe (Garage) của bạn! Vui lòng thêm xe vào Garage trước khi đặt lịch rửa.");
+            throw new BadRequestException("Biá»ƒn sá»‘ xe '" + cleanPlate + "' chÆ°a cÃ³ trong danh sÃ¡ch xe (Garage) cá»§a báº¡n! Vui lÃ²ng thÃªm xe vÃ o Garage trÆ°á»›c khi Ä‘áº·t lá»‹ch rá»­a.");
         }
         Vehicle vehicle = existingVehOpt.get();
 
         boolean isVehicleAlreadyBookedToday = bookingRepository.existsByBookingDateAndLicensePlateIgnoreCaseAndStatusIn(
                 request.getBookingDate(), vehicle.getLicensePlate(), ACTIVE_CAPACITY_STATUSES);
         if (isVehicleAlreadyBookedToday) {
-            throw new BadRequestException("Xe mang biển số '" + vehicle.getLicensePlate() + "' hiện đang có 1 lịch hẹn giữ chỗ/chưa hoàn thành trong ngày " + 
-                    request.getBookingDate() + ". Vui lòng hoàn thành dịch vụ và thanh toán xong cho lượt này (hoặc hủy lịch cũ) trước khi đặt lượt tiếp theo cho xe!");
+            throw new BadRequestException("Xe mang biá»ƒn sá»‘ '" + vehicle.getLicensePlate() + "' hiá»‡n Ä‘ang cÃ³ 1 lá»‹ch háº¹n giá»¯ chá»—/chÆ°a hoÃ n thÃ nh trong ngÃ y " + 
+                    request.getBookingDate() + ". Vui lÃ²ng hoÃ n thÃ nh dá»‹ch vá»¥ vÃ  thanh toÃ¡n xong cho lÆ°á»£t nÃ y (hoáº·c há»§y lá»‹ch cÅ©) trÆ°á»›c khi Ä‘áº·t lÆ°á»£t tiáº¿p theo cho xe!");
         }
 
 
         ServiceCatalog packageService = serviceCatalogRepository.findById(request.getPackageId())
                 .orElseThrow(() -> new ResourceNotFoundException("Service package not found with id: " + request.getPackageId()));
         if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
-            throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
+            throw new BadRequestException("GÃ³i rá»­a xe Ä‘Æ°á»£c chá»n khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ ngá»«ng kinh doanh");
         }
 
         Booking booking = Booking.builder()
                 .bookingCode(generateUniqueBookingCode(request.getBookingDate()))
                 .customer(customer)
                 .licensePlate(vehicle.getLicensePlate())
-                .model(vehicle.getModel() != null ? vehicle.getModel() : (request.getModel() != null ? request.getModel().trim() : "Xe máy"))
+                .model(vehicle.getModel() != null ? vehicle.getModel() : (request.getModel() != null ? request.getModel().trim() : "Xe mÃ¡y"))
 
                 .bookingDate(request.getBookingDate())
                 .timeSlot(slot)
@@ -268,7 +269,7 @@ public class BookingService {
                 ServiceCatalog addonService = serviceCatalogRepository.findById(addonId)
                         .orElseThrow(() -> new ResourceNotFoundException("Addon service not found with id: " + addonId));
                 if (!addonService.getIsActive() || addonService.getServiceType() != ServiceType.ADDON) {
-                    throw new BadRequestException("Dịch vụ thêm không hợp lệ hoặc đã ngừng kinh doanh: " + addonId);
+                    throw new BadRequestException("Dá»‹ch vá»¥ thÃªm khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ ngá»«ng kinh doanh: " + addonId);
                 }
                 totalAmount = totalAmount.add(addonService.getPrice());
                 booking.addItem(BookingItem.builder()
@@ -286,47 +287,47 @@ public class BookingService {
             String code = request.getVoucherCode().trim();
             CustomerPromotion customerPromotion = customerPromotionRepository.findByCustomerCustomerIdAndVoucherCode(
                     customer.getCustomerId(), code)
-                    .orElseThrow(() -> new BadRequestException("Mã giảm giá '" + code + "' không tồn tại trong ví của bạn!"));
+                    .orElseThrow(() -> new BadRequestException("MÃ£ giáº£m giÃ¡ '" + code + "' khÃ´ng tá»“n táº¡i trong vÃ­ cá»§a báº¡n!"));
 
             if (customerPromotion.getStatus() != CustomerPromotionStatus.ISSUED) {
-                throw new BadRequestException("Mã giảm giá '" + code + "' đã được sử dụng hoặc đã hết hạn!");
+                throw new BadRequestException("MÃ£ giáº£m giÃ¡ '" + code + "' Ä‘Ã£ Ä‘Æ°á»£c sá»­ dá»¥ng hoáº·c Ä‘Ã£ háº¿t háº¡n!");
             }
 
             Promotion promotion = customerPromotion.getPromotion();
             if (promotion.getStatus() != PromotionStatus.ACTIVE) {
-                throw new BadRequestException("Chiến dịch khuyến mãi cho mã này đã kết thúc hoặc tạm ngưng!");
+                throw new BadRequestException("Chiáº¿n dá»‹ch khuyáº¿n mÃ£i cho mÃ£ nÃ y Ä‘Ã£ káº¿t thÃºc hoáº·c táº¡m ngÆ°ng!");
             }
 
             if (promotion.getEndDate() != null && promotion.getEndDate().isBefore(LocalDateTime.now())) {
-                throw new BadRequestException("Mã giảm giá '" + code + "' đã quá hạn sử dụng!");
+                throw new BadRequestException("MÃ£ giáº£m giÃ¡ '" + code + "' Ä‘Ã£ quÃ¡ háº¡n sá»­ dá»¥ng!");
             }
 
-            // 1. Ràng buộc gói dịch vụ (applicableServiceCode)
+            // 1. RÃ ng buá»™c gÃ³i dá»‹ch vá»¥ (applicableServiceCode)
             if (promotion.getApplicableServiceCode() != null && !promotion.getApplicableServiceCode().trim().isEmpty()) {
                 String reqServiceCode = packageService.getServiceCode();
                 if (!promotion.getApplicableServiceCode().trim().equalsIgnoreCase(reqServiceCode)) {
-                    throw new BadRequestException("Mã ưu đãi này chỉ áp dụng cho gói dịch vụ: " + promotion.getApplicableServiceCode());
+                    throw new BadRequestException("MÃ£ Æ°u Ä‘Ã£i nÃ y chá»‰ Ã¡p dá»¥ng cho gÃ³i dá»‹ch vá»¥: " + promotion.getApplicableServiceCode());
                 }
             }
 
-            // 2. Ràng buộc ngày trong tuần (applicableDays)
+            // 2. RÃ ng buá»™c ngÃ y trong tuáº§n (applicableDays)
             if (promotion.getApplicableDays() != null && !promotion.getApplicableDays().trim().isEmpty()) {
                 String bookingDayOfWeek = request.getBookingDate().getDayOfWeek().name().substring(0, 3).toUpperCase();
                 String appDays = promotion.getApplicableDays().toUpperCase();
                 if (!appDays.contains(bookingDayOfWeek)) {
-                    throw new BadRequestException("Mã ưu đãi này chỉ áp dụng cho các ngày: " + promotion.getApplicableDays());
+                    throw new BadRequestException("MÃ£ Æ°u Ä‘Ã£i nÃ y chá»‰ Ã¡p dá»¥ng cho cÃ¡c ngÃ y: " + promotion.getApplicableDays());
                 }
             }
 
-            // 3. Ràng buộc giá trị đơn hàng tối thiểu (minOrderValue)
-            // Chỉ áp dụng cho các voucher tiếp thị/phát tặng miễn phí (costPoints == 0),
-            // bỏ qua cho các voucher đổi bằng điểm Loyalty (đã tự trả giá bằng điểm).
+            // 3. RÃ ng buá»™c giÃ¡ trá»‹ Ä‘Æ¡n hÃ ng tá»‘i thiá»ƒu (minOrderValue)
+            // Chá»‰ Ã¡p dá»¥ng cho cÃ¡c voucher tiáº¿p thá»‹/phÃ¡t táº·ng miá»…n phÃ­ (costPoints == 0),
+            // bá» qua cho cÃ¡c voucher Ä‘á»•i báº±ng Ä‘iá»ƒm Loyalty (Ä‘Ã£ tá»± tráº£ giÃ¡ báº±ng Ä‘iá»ƒm).
             if (promotion.getMinOrderValue() != null && promotion.getMinOrderValue().compareTo(BigDecimal.ZERO) > 0) {
                 boolean isPointsExchange = (promotion.getCostPoints() != null && promotion.getCostPoints() > 0)
                         || (customerPromotion.getSource() == CustomerPromotionSource.EXCHANGE);
                 if (!isPointsExchange && totalAmount.compareTo(promotion.getMinOrderValue()) < 0) {
-                    throw new BadRequestException("Mã ưu đãi này chỉ áp dụng cho đơn hàng từ " + 
-                            promotion.getMinOrderValue().setScale(0, java.math.RoundingMode.HALF_UP).toString() + " đ trở lên!");
+                    throw new BadRequestException("MÃ£ Æ°u Ä‘Ã£i nÃ y chá»‰ Ã¡p dá»¥ng cho Ä‘Æ¡n hÃ ng tá»« " + 
+                            promotion.getMinOrderValue().setScale(0, java.math.RoundingMode.HALF_UP).toString() + " Ä‘ trá»Ÿ lÃªn!");
                 }
             }
 
@@ -338,7 +339,7 @@ public class BookingService {
                 }
             } else if (promotion.getDiscountType() == DiscountType.PERCENTAGE) {
                 discountAmount = totalAmount.multiply(promotion.getValue()).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
-                // Áp dụng trần giảm tối đa (maxDiscountAmount) nếu có
+                // Ãp dá»¥ng tráº§n giáº£m tá»‘i Ä‘a (maxDiscountAmount) náº¿u cÃ³
                 if (promotion.getMaxDiscountAmount() != null && promotion.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
                     if (discountAmount.compareTo(promotion.getMaxDiscountAmount()) > 0) {
                         discountAmount = promotion.getMaxDiscountAmount();
@@ -351,11 +352,11 @@ public class BookingService {
             booking.setVoucherCode(code);
             booking.setDiscountAmount(discountAmount);
 
-            // Tạm thời đánh dấu đã dùng để khóa voucher tránh double claim
+            // Táº¡m thá»i Ä‘Ã¡nh dáº¥u Ä‘Ã£ dÃ¹ng Ä‘á»ƒ khÃ³a voucher trÃ¡nh double claim
             customerPromotion.setStatus(CustomerPromotionStatus.USED);
             customerPromotionRepository.save(customerPromotion);
 
-            // Tăng số lượng đã được sử dụng thực tế của chiến dịch
+            // TÄƒng sá»‘ lÆ°á»£ng Ä‘Ã£ Ä‘Æ°á»£c sá»­ dá»¥ng thá»±c táº¿ cá»§a chiáº¿n dá»‹ch
             promotion.setRedeemedCount((promotion.getRedeemedCount() != null ? promotion.getRedeemedCount() : 0) + 1);
         }
 
@@ -378,11 +379,17 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
-    public BookingResponse getBookingById(Long id, Customer customer) {
+    public BookingResponse getBookingById(Long id, UserPrincipal principal) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + id));
-        if (!booking.getCustomer().getCustomerId().equals(customer.getCustomerId())) {
-            throw new BadRequestException("Bạn không có quyền xem đơn đặt lịch này!");
+
+        boolean isStaff = principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_STAFF") || a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isStaff) {
+            if (!booking.getCustomer().getCustomerId().equals(principal.getId())) {
+                throw new BadRequestException("Bu00e1n khu00f4ng cu00f3 quyu00e1n xem u0111u01a1n u0111u00e1t lu00edch nu00e0y!");
+            }
         }
         return mapToResponse(booking);
     }
@@ -392,18 +399,18 @@ public class BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + id));
         if (!booking.getCustomer().getCustomerId().equals(customer.getCustomerId())) {
-            throw new BadRequestException("Bạn không có quyền thao tác trên đơn đặt lịch này!");
+            throw new BadRequestException("Báº¡n khÃ´ng cÃ³ quyá»n thao tÃ¡c trÃªn Ä‘Æ¡n Ä‘áº·t lá»‹ch nÃ y!");
         }
 
         if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.CONFIRMED) {
-            throw new BadRequestException("Đơn đặt lịch đang ở trạng thái '" + booking.getStatus() + "', không thể hủy!");
+            throw new BadRequestException("ÄÆ¡n Ä‘áº·t lá»‹ch Ä‘ang á»Ÿ tráº¡ng thÃ¡i '" + booking.getStatus() + "', khÃ´ng thá»ƒ há»§y!");
         }
 
-        // Chặn tự hủy sát giờ hẹn dưới 2 tiếng
+        // Cháº·n tá»± há»§y sÃ¡t giá» háº¹n dÆ°á»›i 2 tiáº¿ng
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime slotStartTime = LocalDateTime.of(booking.getBookingDate(), booking.getTimeSlot().getStartTime());
         if (now.plusHours(2).isAfter(slotStartTime)) {
-            throw new BadRequestException("Không thể tự hủy lịch hẹn sát giờ phục vụ (dưới 2 tiếng). Vui lòng liên hệ Hotline xưởng để được hỗ trợ!");
+            throw new BadRequestException("KhÃ´ng thá»ƒ tá»± há»§y lá»‹ch háº¹n sÃ¡t giá» phá»¥c vá»¥ (dÆ°á»›i 2 tiáº¿ng). Vui lÃ²ng liÃªn há»‡ Hotline xÆ°á»Ÿng Ä‘á»ƒ Ä‘Æ°á»£c há»— trá»£!");
         }
 
         booking.setStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
@@ -424,21 +431,21 @@ public class BookingService {
         Booking savedBooking = bookingRepository.save(booking);
         log.info("Booking cancelled by customer: {}", savedBooking.getBookingCode());
         eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.CANCELLED,
-                "Khách hàng hủy lịch hẹn",
-                "Khách hàng " + savedBooking.getCustomer().getFullName() + " đã hủy lịch hẹn " + savedBooking.getBookingCode() + " cho khung giờ ngày " + savedBooking.getBookingDate()));
+                "KhÃ¡ch hÃ ng há»§y lá»‹ch háº¹n",
+                "KhÃ¡ch hÃ ng " + savedBooking.getCustomer().getFullName() + " Ä‘Ã£ há»§y lá»‹ch háº¹n " + savedBooking.getBookingCode() + " cho khung giá» ngÃ y " + savedBooking.getBookingDate()));
 
         return mapToResponse(savedBooking);
     }
 
     private void validateBookingDate(LocalDate date, Customer customer) {
         if (date.isBefore(LocalDate.now())) {
-            throw new BadRequestException("Không thể chọn ngày trong quá khứ");
+            throw new BadRequestException("KhÃ´ng thá»ƒ chá»n ngÃ y trong quÃ¡ khá»©");
         }
         int windowDays = (customer != null && customer.getTier() != null && customer.getTier().getBookingWindowDays() != null)
                 ? customer.getTier().getBookingWindowDays() : 7;
         LocalDate maxDate = LocalDate.now().plusDays(windowDays);
         if (date.isAfter(maxDate)) {
-            throw new BadRequestException("Với hạng VIP hiện tại, bạn chỉ được phép đặt trước tối đa " + windowDays + " ngày (" + maxDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")!");
+            throw new BadRequestException("Vá»›i háº¡ng VIP hiá»‡n táº¡i, báº¡n chá»‰ Ä‘Æ°á»£c phÃ©p Ä‘áº·t trÆ°á»›c tá»‘i Ä‘a " + windowDays + " ngÃ y (" + maxDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")!");
         }
     }
 
@@ -508,10 +515,10 @@ public class BookingService {
     @Transactional
     public BookingResponse checkinLate(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch: " + bookingId));
+                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n Ä‘áº·t lá»‹ch: " + bookingId));
 
         if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new BadRequestException("Đơn đặt lịch không ở trạng thái chờ phục vụ (PENDING)");
+            throw new BadRequestException("ÄÆ¡n Ä‘áº·t lá»‹ch khÃ´ng á»Ÿ tráº¡ng thÃ¡i chá» phá»¥c vá»¥ (PENDING)");
         }
 
         LocalDate today = LocalDate.now();
@@ -519,10 +526,10 @@ public class BookingService {
 
         if (booking.getBookingDate().isBefore(today) ||
                 (booking.getBookingDate().isEqual(today) && now.isAfter(booking.getTimeSlot().getEndTime()))) {
-            throw new BadRequestException("Không thể khôi phục check-in! Đơn đặt lịch đã quá giờ kết thúc slot (" + booking.getTimeSlot().getEndTime() + ").");
+            throw new BadRequestException("KhÃ´ng thá»ƒ khÃ´i phá»¥c check-in! ÄÆ¡n Ä‘áº·t lá»‹ch Ä‘Ã£ quÃ¡ giá» káº¿t thÃºc slot (" + booking.getTimeSlot().getEndTime() + ").");
         }
 
-        // Kiểm tra công suất
+        // Kiá»ƒm tra cÃ´ng suáº¥t
         int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(booking.getBookingDate(), booking.getTimeSlot().getSlotId())
                 .map(SlotLock::getLockCount)
                 .orElse(0);
@@ -531,15 +538,15 @@ public class BookingService {
                 booking.getBookingDate(), booking.getTimeSlot().getSlotId(), ACTIVE_CAPACITY_STATUSES);
 
         if (bookedCount + lockedCount >= booking.getTimeSlot().getMaxCapacity()) {
-            throw new BadRequestException("Khung giờ này đã đầy công suất (Đã đặt: " + bookedCount + ", Đã khóa: " + lockedCount + "). Không thể check-in!");
+            throw new BadRequestException("Khung giá» nÃ y Ä‘Ã£ Ä‘áº§y cÃ´ng suáº¥t (ÄÃ£ Ä‘áº·t: " + bookedCount + ", ÄÃ£ khÃ³a: " + lockedCount + "). KhÃ´ng thá»ƒ check-in!");
         }
 
         booking.setStatus(BookingStatus.IN_PROGRESS);
         Booking savedBooking = bookingRepository.save(booking);
 
         eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.CHECKED_IN,
-                "Check-in trễ thành công!",
-                "Đơn đặt lịch " + booking.getBookingCode() + " đã check-in trễ giờ thành công tại quầy và bắt đầu dọn rửa."));
+                "Check-in trá»… thÃ nh cÃ´ng!",
+                "ÄÆ¡n Ä‘áº·t lá»‹ch " + booking.getBookingCode() + " Ä‘Ã£ check-in trá»… giá» thÃ nh cÃ´ng táº¡i quáº§y vÃ  báº¯t Ä‘áº§u dá»n rá»­a."));
 
         return mapToResponse(savedBooking);
     }
@@ -574,23 +581,23 @@ public class BookingService {
     @Transactional
     public SlotOccupancyResponse adjustLock(LocalDate date, Long slotId, boolean lock) {
         if (date.isBefore(LocalDate.now())) {
-            throw new BadRequestException("Không thể thiết lập khóa slot cho ngày trong quá khứ!");
+            throw new BadRequestException("KhÃ´ng thá»ƒ thiáº¿t láº­p khÃ³a slot cho ngÃ y trong quÃ¡ khá»©!");
         }
 
-        // Ràng buộc nghiệp vụ: Không cho phép khóa slot nếu ngày đó đã đóng cửa toàn bộ trạm nghỉ lễ/bảo trì
+        // RÃ ng buá»™c nghiá»‡p vá»¥: KhÃ´ng cho phÃ©p khÃ³a slot náº¿u ngÃ y Ä‘Ã³ Ä‘Ã£ Ä‘Ã³ng cá»­a toÃ n bá»™ tráº¡m nghá»‰ lá»…/báº£o trÃ¬
         Optional<GarageClosure> closureOpt = garageClosureRepository.findByClosureDate(date);
         if (closureOpt.isPresent() && Boolean.TRUE.equals(closureOpt.get().getIsFullDay())) {
-            throw new BadRequestException("Ngày " + date + " đã đóng cửa toàn bộ trạm nghỉ lễ/bảo trì. Không cần khóa slot lẻ!");
+            throw new BadRequestException("NgÃ y " + date + " Ä‘Ã£ Ä‘Ã³ng cá»­a toÃ n bá»™ tráº¡m nghá»‰ lá»…/báº£o trÃ¬. KhÃ´ng cáº§n khÃ³a slot láº»!");
         }
 
         TimeSlot slot = timeSlotRepository.findById(slotId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung giờ với ID: " + slotId));
+                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y khung giá» vá»›i ID: " + slotId));
 
         int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                 date, slotId, ACTIVE_CAPACITY_STATUSES);
 
         if (lock && bookedCount >= slot.getMaxCapacity()) {
-            throw new BadRequestException("Khung giờ này đã đầy công suất đặt lịch (" + bookedCount + "/" + slot.getMaxCapacity() + "). Không thể khóa thêm chỗ trống!");
+            throw new BadRequestException("Khung giá» nÃ y Ä‘Ã£ Ä‘áº§y cÃ´ng suáº¥t Ä‘áº·t lá»‹ch (" + bookedCount + "/" + slot.getMaxCapacity() + "). KhÃ´ng thá»ƒ khÃ³a thÃªm chá»— trá»‘ng!");
         }
 
         SlotLock slotLock = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slotId)
@@ -622,10 +629,10 @@ public class BookingService {
     @Transactional
     public BookingResponse completeCheckout(Long bookingId, String paymentMethod) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch: " + bookingId));
+                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n Ä‘áº·t lá»‹ch: " + bookingId));
 
         if (booking.getPaymentStatus() == PaymentStatus.PAID) {
-            throw new BadRequestException("Đơn đặt lịch này đã được thanh toán rồi!");
+            throw new BadRequestException("ÄÆ¡n Ä‘áº·t lá»‹ch nÃ y Ä‘Ã£ Ä‘Æ°á»£c thanh toÃ¡n rá»“i!");
         }
 
         booking.setPaymentStatus(PaymentStatus.PAID);
@@ -653,7 +660,7 @@ public class BookingService {
         customer.setVisitCount(customer.getVisitCount() + 1);
         customer.setLastCompletedBookingAt(LocalDateTime.now());
         
-        // Ghi nhận nhật ký tích điểm
+        // Ghi nháº­n nháº­t kÃ½ tÃ­ch Ä‘iá»ƒm
         com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction pt = com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction.builder()
                 .customer(customer)
                 .points(pointsToAdd)
@@ -679,8 +686,8 @@ public class BookingService {
         customerRepository.save(customer);
 
         eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.COMPLETED,
-                "Giao dịch hoàn tất!",
-                "Đơn hàng " + booking.getBookingCode() + " đã thanh toán thành công và hoàn thành dọn rửa. Bạn tích lũy được +" + pointsToAdd + " Pts."));
+                "Giao dá»‹ch hoÃ n táº¥t!",
+                "ÄÆ¡n hÃ ng " + booking.getBookingCode() + " Ä‘Ã£ thanh toÃ¡n thÃ nh cÃ´ng vÃ  hoÃ n thÃ nh dá»n rá»­a. Báº¡n tÃ­ch lÅ©y Ä‘Æ°á»£c +" + pointsToAdd + " Pts."));
 
         return mapToResponse(savedBooking);
     }
@@ -723,7 +730,7 @@ public class BookingService {
                 .map(lock -> SlotLockResponse.builder()
                         .closureId(lock.getSlotLockId())
                         .closureDate(lock.getLockDate())
-                        .reason("Khóa khung giờ " + lock.getTimeSlot().getStartTime())
+                        .reason("KhÃ³a khung giá» " + lock.getTimeSlot().getStartTime())
                         .isFullDay(false)
                         .slotId(lock.getTimeSlot().getSlotId())
                         .startTime(lock.getTimeSlot().getStartTime().toString())
@@ -731,7 +738,7 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
-    @Scheduled(cron = "0 0 0 * * ?") // Chạy tự động vào lúc 00:00 nửa đêm hàng ngày
+    @Scheduled(cron = "0 0 0 * * ?") // Cháº¡y tá»± Ä‘á»™ng vÃ o lÃºc 00:00 ná»­a Ä‘Ãªm hÃ ng ngÃ y
     @Transactional
     public void autoCleanPastClosuresAndLocks() {
         LocalDate today = LocalDate.now();
@@ -746,3 +753,7 @@ public class BookingService {
         }
     }
 }
+
+
+
+

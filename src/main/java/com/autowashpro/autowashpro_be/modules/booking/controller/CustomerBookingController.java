@@ -61,11 +61,11 @@ public class CustomerBookingController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_STAFF') or hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_CUSTOMER') or isAuthenticated()")
     public ResponseEntity<BookingResponse> getBookingById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        Customer customer = getAuthenticatedCustomer(principal);
-        return ResponseEntity.ok(bookingService.getBookingById(id, customer));
+        return ResponseEntity.ok(bookingService.getBookingById(id, principal));
     }
 
     @PostMapping("/{id}/cancel")
@@ -78,9 +78,10 @@ public class CustomerBookingController {
 
     private Customer getAuthenticatedCustomer(UserPrincipal principal) {
         if (principal == null || principal.getId() == null) {
-            throw new BadRequestException("Vui lòng đăng nhập để thực hiện chức năng này!");
+            throw new BadRequestException("Vui lÃ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ thá»±c hiá»‡n chá»©c nÄƒng nÃ y!");
         }
         return customerRepository.findById(principal.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin khách hàng"));
+                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y thÃ´ng tin khÃ¡ch hÃ ng"));
     }
 }
+
