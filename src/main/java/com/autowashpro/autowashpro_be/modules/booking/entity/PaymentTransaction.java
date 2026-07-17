@@ -30,13 +30,13 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "payment_gateway", nullable = false, length = 50)
     private String paymentGateway;
 
-    @Column(name = "momo_trans_id", length = 100)
+    @Column(name = "momo_trans_id", columnDefinition = "TEXT")
     private String momoTransId;
 
-    @Column(name = "momo_request_id", length = 100)
+    @Column(name = "momo_request_id", columnDefinition = "TEXT")
     private String momoRequestId;
 
-    @Column(name = "momo_order_id", length = 100)
+    @Column(name = "momo_order_id", columnDefinition = "TEXT")
     private String momoOrderId;
 
     @Column(name = "amount", nullable = false, precision = 12, scale = 2)

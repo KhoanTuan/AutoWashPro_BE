@@ -29,6 +29,6 @@ public class PointTransaction extends BaseEntity {
     @Column(name = "activity_type", nullable = false, length = 20)
     private PointActivityType activityType;
 
-    @Column(name = "booking_code", length = 50)
+    @Column(name = "booking_code", columnDefinition = "TEXT")
     private String bookingCode;
 }

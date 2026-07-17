@@ -40,7 +40,7 @@ public class Notification {
     @Column(name = "type", nullable = false, length = 30)
     private NotificationType type;
 
-    @Column(name = "reference_code", length = 50)
+    @Column(name = "reference_code", columnDefinition = "TEXT")
     private String referenceCode;
 
     @Column(name = "is_read", nullable = false)
