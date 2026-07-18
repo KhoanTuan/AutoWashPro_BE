@@ -123,8 +123,8 @@ public class LoyaltyScheduler {
                         }
 
                         customer.setTier(newTier);
-                        // Reset tier spending về mức tối thiểu của hạng mới
-                        customer.setTierSpending(newTier.getMinSpend() != null ? newTier.getMinSpend() : BigDecimal.ZERO);
+                        // Reset total spending về mức tối thiểu của hạng mới
+                        customer.setTotalSpending(newTier.getMinSpend() != null ? newTier.getMinSpend() : BigDecimal.ZERO);
                         customerRepository.save(customer);
 
                         notificationService.notifyGeneral(

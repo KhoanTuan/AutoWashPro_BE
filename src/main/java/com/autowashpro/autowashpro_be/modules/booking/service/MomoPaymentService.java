@@ -276,18 +276,16 @@ public class MomoPaymentService {
             
             int newLoyaltyPoints = customer.getLoyaltyPoints() + pointsToAdd;
             BigDecimal newTotalSpending = customer.getTotalSpending().add(amount);
-            BigDecimal newTierSpending = customer.getTierSpending().add(amount);
             int newVisitCount = customer.getVisitCount() + 1;
 
             customer.setLoyaltyPoints(newLoyaltyPoints);
             customer.setTotalSpending(newTotalSpending);
-            customer.setTierSpending(newTierSpending);
             customer.setVisitCount(newVisitCount);
 
             customerRepository.save(customer);
 
-            log.info("Loyalty points processed for customerId: {}, pointsEarned: {}, totalPoints: {}, totalSpending: {}, tierSpending: {}", 
-                    customer.getCustomerId(), pointsToAdd, newLoyaltyPoints, newTotalSpending, newTierSpending);
+            log.info("Loyalty points processed for customerId: {}, pointsEarned: {}, totalPoints: {}, totalSpending: {}", 
+                    customer.getCustomerId(), pointsToAdd, newLoyaltyPoints, newTotalSpending);
             return pointsToAdd;
         } catch (Exception e) {
             log.error("Error processing loyalty points for customerId: {}", customer.getCustomerId(), e);
@@ -298,7 +296,7 @@ public class MomoPaymentService {
     private void checkAndUpdateTier(Customer customer) {
         try {
             List<LoyaltyTier> allTiers = loyaltyTierRepository.findAllByOrderByMinSpendAsc();
-            BigDecimal tierSpend = customer.getTierSpending();
+            BigDecimal tierSpend = customer.getTotalSpending();
 
             for (int i = allTiers.size() - 1; i >= 0; i--) {
                 LoyaltyTier tier = allTiers.get(i);

@@ -30,3 +30,4 @@ BEGIN
     END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_security_token_staff ON security_token (staff_id);
+ALTER TABLE customer DROP COLUMN IF EXISTS tier_spending;

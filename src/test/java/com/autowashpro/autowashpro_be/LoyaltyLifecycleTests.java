@@ -79,7 +79,6 @@ class LoyaltyLifecycleTests {
 
         // Lưu thông số cũ của customer và config để phục hồi sau test
         int originalPoints = customer.getLoyaltyPoints() != null ? customer.getLoyaltyPoints() : 0;
-        BigDecimal originalTierSpend = customer.getTierSpending() != null ? customer.getTierSpending() : BigDecimal.ZERO;
         BigDecimal originalTotalSpend = customer.getTotalSpending() != null ? customer.getTotalSpending() : BigDecimal.ZERO;
         LoyaltyTier originalTier = customer.getTier();
         CustomerStatus originalStatus = customer.getStatus();
@@ -111,9 +110,9 @@ class LoyaltyLifecycleTests {
                     .build();
             loyaltyService.updateLoyaltyConfig(newConfig);
 
-            // Reset customer points và tier spending để test chính xác
+            // Reset customer points và total spending để test chính xác
             customer.setLoyaltyPoints(0);
-            customer.setTierSpending(BigDecimal.ZERO);
+            customer.setTotalSpending(BigDecimal.ZERO);
             customer.setTier(regularTier);
             customerRepository.save(customer);
 
@@ -149,7 +148,7 @@ class LoyaltyLifecycleTests {
             // ==========================================
             // Nâng hạng khách hàng lên Platinum
             customerAfterCheckout.setTier(platinumTier);
-            customerAfterCheckout.setTierSpending(BigDecimal.valueOf(10000000));
+            customerAfterCheckout.setTotalSpending(BigDecimal.valueOf(10000000));
             customerRepository.save(customerAfterCheckout);
 
             // Giả lập vắng mặt 7 tháng (> 6 tháng)
@@ -161,7 +160,7 @@ class LoyaltyLifecycleTests {
             // Xác nhận khách hàng bị hạ xuống Gold (hạng kế dưới Platinum)
             Customer customerAfterDowngrade = customerRepository.findById(customer.getCustomerId()).orElseThrow();
             assertEquals(goldTier.getTierId(), customerAfterDowngrade.getTier().getTierId(), "Should be downgraded to Gold");
-            assertEquals(goldTier.getMinSpend(), customerAfterDowngrade.getTierSpending(), "Tier spending should reset to Gold floor");
+            assertEquals(goldTier.getMinSpend(), customerAfterDowngrade.getTotalSpending(), "Total spending should reset to Gold floor");
 
             // ==========================================
             // TEST 3: GIẢ LẬP THU HỒI ĐIỂM QUÁ HẠN
@@ -216,7 +215,6 @@ class LoyaltyLifecycleTests {
                 // Khôi phục trạng thái khách hàng ban đầu
                 Customer finalRestore = customerRepository.findById(customer.getCustomerId()).orElseThrow();
                 finalRestore.setLoyaltyPoints(originalPoints);
-                finalRestore.setTierSpending(originalTierSpend);
                 finalRestore.setTotalSpending(originalTotalSpend);
                 finalRestore.setTier(originalTier);
                 finalRestore.setStatus(originalStatus);

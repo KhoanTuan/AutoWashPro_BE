@@ -364,6 +364,22 @@ public class CustomerAdminService {
                 .build());
     }
 
+    @Transactional
+    public CustomerResponse updateLoyaltyProfile(Long id, AdminUpdateLoyaltyRequest request) {
+        Customer customer = findCustomer(id);
+
+        LoyaltyTier tier = loyaltyTierRepository.findByTierName(request.getTierName().toUpperCase())
+                .or(() -> loyaltyTierRepository.findByTierName(request.getTierName()))
+                .orElseThrow(() -> new ResourceNotFoundException("Loyalty tier not found: " + request.getTierName()));
+
+        customer.setLoyaltyPoints(request.getLoyaltyPoints());
+        customer.setTotalSpending(request.getTotalSpending());
+        customer.setTier(tier);
+
+        customerRepository.save(customer);
+        return mapper.toResponse(customer);
+    }
+
     private Customer findCustomer(Long id) {
         return customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));

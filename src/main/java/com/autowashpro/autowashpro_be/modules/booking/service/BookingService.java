@@ -649,7 +649,6 @@ public class BookingService {
         
         customer.setLoyaltyPoints(customer.getLoyaltyPoints() + pointsToAdd);
         customer.setTotalSpending(customer.getTotalSpending().add(amount));
-        customer.setTierSpending(customer.getTierSpending().add(amount));
         customer.setVisitCount(customer.getVisitCount() + 1);
         customer.setLastCompletedBookingAt(LocalDateTime.now());
         
@@ -663,7 +662,7 @@ public class BookingService {
         pointTransactionRepository.save(pt);
         
         List<LoyaltyTier> allTiers = loyaltyTierRepository.findAllByOrderByMinSpendAsc();
-        BigDecimal tierSpend = customer.getTierSpending();
+        BigDecimal tierSpend = customer.getTotalSpending();
 
         for (int i = allTiers.size() - 1; i >= 0; i--) {
             LoyaltyTier tier = allTiers.get(i);

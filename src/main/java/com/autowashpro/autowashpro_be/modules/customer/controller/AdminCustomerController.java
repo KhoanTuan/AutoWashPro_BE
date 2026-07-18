@@ -99,4 +99,14 @@ public class AdminCustomerController {
     public ResponseEntity<List<PointTransactionResponse>> getCustomerPointHistory(@PathVariable Long id) {
         return ResponseEntity.ok(loyaltyService.getCustomerPointHistory(id));
     }
+
+    @PostMapping("/{id}/loyalty-profile")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
+    @Operation(summary = "Cập nhật hoặc khởi tạo thông tin loyalty của khách hàng (Admin/Staff)")
+    public ResponseEntity<CustomerResponse> updateLoyaltyProfile(
+            @PathVariable Long id,
+            @Valid @RequestBody AdminUpdateLoyaltyRequest request
+    ) {
+        return ResponseEntity.ok(customerAdminService.updateLoyaltyProfile(id, request));
+    }
 }
