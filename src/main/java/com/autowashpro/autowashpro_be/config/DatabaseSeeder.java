@@ -3,6 +3,7 @@ package com.autowashpro.autowashpro_be.config;
 
 import com.autowashpro.autowashpro_be.modules.booking.entity.*;
 import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
+import com.autowashpro.autowashpro_be.modules.booking.repository.BookingItemRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
 import com.autowashpro.autowashpro_be.modules.notification.entity.*;
@@ -17,6 +18,9 @@ import com.autowashpro.autowashpro_be.modules.customer.entity.Vehicle;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository;
 import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
+import com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction;
+import com.autowashpro.autowashpro_be.modules.customer.entity.PointActivityType;
+import com.autowashpro.autowashpro_be.modules.customer.repository.PointTransactionRepository;
 import com.autowashpro.autowashpro_be.modules.identity.PermissionCatalog;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Permission;
 import com.autowashpro.autowashpro_be.modules.identity.entity.Role;
@@ -52,10 +56,12 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final ServiceCatalogRepository serviceCatalogRepository;
     private final TimeSlotRepository timeSlotRepository;
     private final BookingRepository bookingRepository;
+    private final BookingItemRepository bookingItemRepository;
     private final NotificationRepository notificationRepository;
     private final PromotionRepository promotionRepository;
     private final CustomerPromotionRepository customerPromotionRepository;
     private final CustomerFeedbackRepository customerFeedbackRepository;
+    private final PointTransactionRepository pointTransactionRepository;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -120,12 +126,37 @@ public class DatabaseSeeder implements CommandLineRunner {
             new DemoStaffSeed("manager", "manager@autowashpro.com", "0901000002", "Tran Thi Manager",
                     "Manager@123", "ROLE_MANAGER", StaffStatus.ACTIVE, false),
             new DemoStaffSeed("cashier", "cashier@autowashpro.com", "0901000003", "Le Van Cashier",
-                    "Cashier@123", "ROLE_CASHIER", StaffStatus.ACTIVE, false)
+                    "Cashier@123", "ROLE_CASHIER", StaffStatus.ACTIVE, false),
+            new DemoStaffSeed("fired_staff", "fired@autowashpro.com", "0901000004", "Tran Fired Staff",
+                    "Staff@123", "ROLE_CASHIER", StaffStatus.INACTIVE, false)
     );
+
+    private void cleanupDatabase() {
+        log.info("Cleaning up existing database tables for fresh seeding...");
+        customerFeedbackRepository.deleteAllInBatch();
+        customerPromotionRepository.deleteAllInBatch();
+        notificationRepository.deleteAllInBatch();
+        pointTransactionRepository.deleteAllInBatch();
+        
+        bookingItemRepository.deleteAllInBatch();
+        bookingRepository.deleteAllInBatch();
+        vehicleRepository.deleteAllInBatch();
+        customerRepository.deleteAllInBatch();
+        
+        staffRepository.deleteAllInBatch();
+        roleRepository.deleteAllInBatch();
+        permissionRepository.deleteAllInBatch();
+        
+        timeSlotRepository.deleteAllInBatch();
+        serviceCatalogRepository.deleteAllInBatch();
+        loyaltyTierRepository.deleteAllInBatch();
+        log.info("Database cleanup completed!");
+    }
 
     @Override
     @Transactional
     public void run(String... args) {
+        cleanupDatabase();
         seedLoyaltyTiers();
         Map<String, Permission> permissionMap = ensurePermissions();
         Map<String, Role> rolesByName = ensureRoles(permissionMap);
@@ -136,11 +167,12 @@ public class DatabaseSeeder implements CommandLineRunner {
         seedServiceCatalog();
         seedTimeSlots();
         seedDemoBookings();
+        seedPointTransactions();
         seedDemoNotifications();
         seedDemoPromotionsAndFeedbacks();
-        log.info("Demo staff ready — admin/Admin@123, manager/Manager@123, cashier/Cashier@123");
+        log.info("Demo staff ready — admin/Admin@123, manager/Manager@123, cashier/Cashier@123, fired_staff/Staff@123 (Inactive)");
         log.info("Demo customers ready — password Customer@123");
-        log.info("Demo service catalog, time slots, bookings, notifications, promotions & feedbacks seeded successfully for E2E-1 & E2E-3!");
+        log.info("Demo service catalog, time slots, bookings, point transactions, notifications, promotions & feedbacks seeded successfully!");
     }
 
     private Role ensureRole(String roleName, String description, Collection<Permission> permissions) {
@@ -863,6 +895,42 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .createdAt(LocalDateTime.now().minusDays(4)).status(FeedbackStatus.RESOLVED)
                     .resolutionNotes("Phản hồi rất tốt. Khách hàng thân thiết Gold.").build());
         });
+    }
+
+    private void seedPointTransactions() {
+        log.info("Seeding point transactions...");
+        // Customer 1: Nguyen Van An (0902000001)
+        customerRepository.findByPhoneNumber("0902000001").ifPresent(c -> {
+            savePointTx(c, 50, PointActivityType.EARNED, "NV-1002", LocalDateTime.now().minusDays(1));
+            savePointTx(c, 80, PointActivityType.EARNED, "NV-1016", LocalDateTime.now().minusDays(5));
+            savePointTx(c, -15, PointActivityType.PENALTY, "NV-1017", LocalDateTime.now().minusDays(8));
+        });
+
+        // Customer 2: Tran Thi Binh (0902000002)
+        customerRepository.findByPhoneNumber("0902000002").ifPresent(c -> {
+            savePointTx(c, 70, PointActivityType.EARNED, "NV-1005", LocalDateTime.now().minusDays(3));
+            savePointTx(c, -450, PointActivityType.REDEEMED, null, LocalDateTime.now().minusDays(10));
+        });
+
+        // Customer 4: Pham Thi Dung (0902000004)
+        customerRepository.findByPhoneNumber("0902000004").ifPresent(c -> {
+            savePointTx(c, 160, PointActivityType.EARNED, "NV-1007", LocalDateTime.now().minusDays(1));
+            savePointTx(c, -1000, PointActivityType.REDEEMED, null, LocalDateTime.now().minusDays(5));
+            savePointTx(c, 200, PointActivityType.EARNED, "NV-1015", LocalDateTime.now().minusDays(18));
+            savePointTx(c, -50, PointActivityType.EXPIRY, null, LocalDateTime.now().minusDays(30));
+        });
+    }
+
+    private void savePointTx(Customer customer, int points, PointActivityType type, String bookingCode, LocalDateTime date) {
+        PointTransaction tx = PointTransaction.builder()
+                .customer(customer)
+                .points(points)
+                .activityType(type)
+                .bookingCode(bookingCode)
+                .build();
+        tx.setCreatedAt(date);
+        tx.setUpdatedAt(date);
+        pointTransactionRepository.save(tx);
     }
 
 

@@ -4,6 +4,7 @@ import com.autowashpro.autowashpro_be.common.dto.PageResponse;
 import com.autowashpro.autowashpro_be.common.openapi.ApiHidden;
 import com.autowashpro.autowashpro_be.modules.customer.dto.*;
 import com.autowashpro.autowashpro_be.modules.customer.service.CustomerAdminService;
+import com.autowashpro.autowashpro_be.modules.customer.service.LoyaltyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +27,7 @@ import static com.autowashpro.autowashpro_be.config.OpenApiConfig.TAG_04_ADMIN_C
 public class AdminCustomerController {
 
     private final CustomerAdminService customerAdminService;
+    private final LoyaltyService loyaltyService;
 
     @GetMapping("/stats")
     @ApiHidden
@@ -89,5 +91,12 @@ public class AdminCustomerController {
             @Valid @RequestBody UpdateCustomerStatusRequest request
     ) {
         return ResponseEntity.ok(customerAdminService.updateStatus(id, request.getStatus()));
+    }
+
+    @GetMapping("/{id}/points/history")
+    @PreAuthorize("hasAuthority('VIEW_CUSTOMER_PROFILE')")
+    @Operation(summary = "Xem lịch sử tích lũy và sử dụng điểm thưởng của khách hàng (CRM Detail)")
+    public ResponseEntity<List<PointTransactionResponse>> getCustomerPointHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(loyaltyService.getCustomerPointHistory(id));
     }
 }

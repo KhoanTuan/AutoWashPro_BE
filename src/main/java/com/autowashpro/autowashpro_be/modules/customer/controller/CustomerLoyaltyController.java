@@ -1,6 +1,7 @@
 package com.autowashpro.autowashpro_be.modules.customer.controller;
 
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
+import com.autowashpro.autowashpro_be.modules.customer.dto.PointTransactionResponse;
 import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltyTierResponse;
 import com.autowashpro.autowashpro_be.modules.customer.service.LoyaltyService;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
@@ -38,5 +39,15 @@ public class CustomerLoyaltyController {
             throw new BadRequestException("Vui lòng đăng nhập để kiểm tra đặc quyền VIP!");
         }
         return ResponseEntity.ok(loyaltyService.getMyLoyaltyStatus(principal.getId()));
+    }
+
+    @GetMapping("/points/history")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Xem lịch sử tích lũy và sử dụng điểm thưởng của tôi")
+    public ResponseEntity<List<PointTransactionResponse>> getMyPointHistory(@AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null || principal.getId() == null) {
+            throw new BadRequestException("Vui lòng đăng nhập để kiểm tra lịch sử điểm!");
+        }
+        return ResponseEntity.ok(loyaltyService.getCustomerPointHistory(principal.getId()));
     }
 }

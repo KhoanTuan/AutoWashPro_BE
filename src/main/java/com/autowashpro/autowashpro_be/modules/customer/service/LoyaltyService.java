@@ -17,6 +17,7 @@ import java.math.RoundingMode;
 import java.util.List;
 
 import com.autowashpro.autowashpro_be.common.exception.BadRequestException;
+import com.autowashpro.autowashpro_be.modules.customer.dto.PointTransactionResponse;
 import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltyConfigRequest;
 import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltySettingsResponse;
 import com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyConfig;
@@ -34,6 +35,23 @@ public class LoyaltyService {
     private final CustomerRepository customerRepository;
     private final LoyaltyConfigRepository loyaltyConfigRepository;
     private final PointTransactionRepository pointTransactionRepository;
+
+    @Transactional(readOnly = true)
+    public List<PointTransactionResponse> getCustomerPointHistory(Long customerId) {
+        if (!customerRepository.existsById(customerId)) {
+            throw new ResourceNotFoundException("Không tìm thấy khách hàng với ID: " + customerId);
+        }
+        return pointTransactionRepository.findAllByCustomerCustomerIdOrderByCreatedAtDesc(customerId)
+                .stream()
+                .map(pt -> PointTransactionResponse.builder()
+                        .pointTransactionId(pt.getPointTransactionId())
+                        .points(pt.getPoints())
+                        .activityType(pt.getActivityType() != null ? pt.getActivityType().name() : null)
+                        .bookingCode(pt.getBookingCode())
+                        .createdAt(pt.getCreatedAt())
+                        .build())
+                .toList();
+    }
 
     @Transactional(readOnly = true)
     public LoyaltySettingsResponse getLoyaltySettings() {
