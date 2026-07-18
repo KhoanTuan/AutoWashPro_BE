@@ -39,9 +39,29 @@ public class CustomerFeedbackServiceImpl implements CustomerFeedbackService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Khách hàng không tồn tại ID: " + customerId));
 
+        String bookingCode = request.getBookingCode();
+        if ((bookingCode == null || bookingCode.isBlank()) && request.getBookingId() != null) {
+            Booking b = bookingRepository.findById(request.getBookingId()).orElse(null);
+            if (b != null) {
+                bookingCode = b.getBookingCode();
+            }
+        }
+        if (bookingCode == null || bookingCode.isBlank()) {
+            throw new IllegalArgumentException("Mã đơn hàng không được để trống");
+        }
+
+        Integer stars = request.getRatingStars();
+        if (stars == null) {
+            stars = request.getRating();
+        }
+        if (stars == null) {
+            throw new IllegalArgumentException("Số sao đánh giá không được để trống");
+        }
+
         // 1. Kiểm tra đơn hàng có tồn tại không
-        Booking booking = bookingRepository.findByBookingCode(request.getBookingCode())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn đặt lịch với mã: " + request.getBookingCode()));
+        final String finalBookingCode = bookingCode;
+        Booking booking = bookingRepository.findByBookingCode(finalBookingCode)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn đặt lịch với mã: " + finalBookingCode));
 
         // 2. Ràng buộc: Đơn hàng phải thuộc về đúng khách hàng này
         if (!booking.getCustomer().getCustomerId().equals(customerId)) {
@@ -54,7 +74,7 @@ public class CustomerFeedbackServiceImpl implements CustomerFeedbackService {
         }
 
         // 4. Ràng buộc: Tránh spam đánh giá (mỗi đơn đặt lịch chỉ được đánh giá 1 lần duy nhất)
-        if (customerFeedbackRepository.existsByBookingId(request.getBookingCode())) {
+        if (customerFeedbackRepository.existsByBookingId(finalBookingCode)) {
             throw new IllegalArgumentException("Đơn đặt lịch này đã được gửi đánh giá trước đó.");
         }
 
@@ -68,9 +88,9 @@ public class CustomerFeedbackServiceImpl implements CustomerFeedbackService {
 
         CustomerFeedback feedback = CustomerFeedback.builder()
                 .customer(customer)
-                .bookingId(request.getBookingCode())
+                .bookingId(finalBookingCode)
                 .serviceName(serviceName)
-                .ratingStars(request.getRatingStars())
+                .ratingStars(stars)
                 .comment(request.getComment())
                 .createdAt(LocalDateTime.now())
                 .status(FeedbackStatus.NEW)

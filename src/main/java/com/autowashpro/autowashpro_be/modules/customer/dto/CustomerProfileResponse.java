@@ -19,6 +19,9 @@ public class CustomerProfileResponse {
     @Schema(description = "ID khách hàng", example = "1")
     private Long customerId;
 
+    @Schema(description = "ID khách hàng (id alias)", example = "1")
+    private Long id;
+
     @Schema(description = "Số điện thoại", example = "0901234567")
     private String phoneNumber;
 
@@ -27,6 +30,9 @@ public class CustomerProfileResponse {
 
     @Schema(description = "Hạng thành viên hệ thống", example = "REGULAR")
     private String tierName;
+
+    @Schema(description = "Hạng VIP hiện tại", example = "REGULAR")
+    private String membershipTier;
 
     @Schema(description = "Tên hạng hiển thị trên App (Member, Silver, Gold, Platinum)", example = "Member")
     private String tierDisplayName;
@@ -40,8 +46,20 @@ public class CustomerProfileResponse {
     @Schema(description = "Tổng chi tiêu (VND)", example = "1500000.00")
     private BigDecimal totalSpending;
 
+    @Schema(description = "Tổng chi tiêu (VND, totalSpent alias)", example = "1500000.00")
+    private BigDecimal totalSpent;
+
     @Schema(description = "Điểm tích lũy hiện tại", example = "150")
     private Integer loyaltyPoints;
+
+    @Schema(description = "Địa chỉ email", example = "customer@example.com")
+    private String email;
+
+    @Schema(description = "Trạng thái xác thực email", example = "true")
+    private Boolean isEmailVerified;
+
+    @Schema(description = "Ngày gia nhập trạm", example = "2026-07-15T14:30:00")
+    private java.time.LocalDateTime createdAt;
 
     @Schema(description = "Danh sách xe trong Garage cá nhân")
     private List<VehicleResponse> vehicles;

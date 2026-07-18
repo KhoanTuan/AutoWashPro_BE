@@ -6,6 +6,8 @@ import com.autowashpro.autowashpro_be.modules.booking.repository.BookingReposito
 import com.autowashpro.autowashpro_be.modules.booking.repository.BookingItemRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
+import com.autowashpro.autowashpro_be.modules.booking.repository.SlotLockRepository;
+import com.autowashpro.autowashpro_be.modules.booking.repository.GarageClosureRepository;
 import com.autowashpro.autowashpro_be.modules.notification.entity.*;
 import com.autowashpro.autowashpro_be.modules.notification.repository.NotificationRepository;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.*;
@@ -55,6 +57,8 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final VehicleRepository vehicleRepository;
     private final ServiceCatalogRepository serviceCatalogRepository;
     private final TimeSlotRepository timeSlotRepository;
+    private final SlotLockRepository slotLockRepository;
+    private final GarageClosureRepository garageClosureRepository;
     private final BookingRepository bookingRepository;
     private final BookingItemRepository bookingItemRepository;
     private final NotificationRepository notificationRepository;
@@ -147,6 +151,8 @@ public class DatabaseSeeder implements CommandLineRunner {
         roleRepository.deleteAllInBatch();
         permissionRepository.deleteAllInBatch();
         
+        slotLockRepository.deleteAllInBatch();
+        garageClosureRepository.deleteAllInBatch();
         timeSlotRepository.deleteAllInBatch();
         serviceCatalogRepository.deleteAllInBatch();
         loyaltyTierRepository.deleteAllInBatch();

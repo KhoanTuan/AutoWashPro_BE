@@ -58,7 +58,6 @@ public class AdminCustomerController {
     }
 
     @GetMapping("/{id}")
-    @ApiHidden
     @PreAuthorize("hasAuthority('VIEW_CUSTOMER_PROFILE')")
     @Operation(operationId = "04-04-detail", summary = "[READ] Chi tiết khách hàng")
     public ResponseEntity<CustomerResponse> getById(@PathVariable Long id) {

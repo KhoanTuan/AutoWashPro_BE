@@ -349,14 +349,20 @@ public class CustomerAuthService {
 
         return CustomerProfileResponse.builder()
                 .customerId(customer.getCustomerId())
+                .id(customer.getCustomerId())
                 .phoneNumber(customer.getPhoneNumber())
                 .fullName(customer.getFullName())
                 .tierName(tierName)
+                .membershipTier(tierName)
                 .tierDisplayName(dispName)
                 .bookingWindowDays(windowDays)
                 .visitCount(customer.getVisitCount())
                 .totalSpending(customer.getTotalSpending())
+                .totalSpent(customer.getTotalSpending())
                 .loyaltyPoints(customer.getLoyaltyPoints())
+                .email(customer.getEmail())
+                .isEmailVerified(customer.getEmail() != null && !customer.getEmail().isBlank())
+                .createdAt(customer.getCreatedAt())
                 .vehicles(vehicles)
                 .build();
     }

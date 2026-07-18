@@ -43,6 +43,15 @@ public class CustomerFeedbackController {
         return ResponseEntity.ok(feedbackService.getMyFeedbacks(id));
     }
 
+    @GetMapping
+    @Operation(summary = "[READ] Danh sách phản hồi của tôi (direct path)")
+    public ResponseEntity<List<FeedbackResponse>> getMyFeedbacksDirect(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long customerId) {
+        Long id = resolveCustomerId(principal, customerId);
+        return ResponseEntity.ok(feedbackService.getMyFeedbacks(id));
+    }
+
     private Long resolveCustomerId(UserPrincipal principal, Long paramId) {
         if (paramId != null) return paramId;
         if (principal != null && principal.getId() != null) return principal.getId();

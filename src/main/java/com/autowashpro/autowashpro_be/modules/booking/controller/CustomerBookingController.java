@@ -55,9 +55,17 @@ public class CustomerBookingController {
     }
 
     @GetMapping
-    public ResponseEntity<List<BookingResponse>> getMyBookings(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<List<BookingResponse>> getMyBookings(
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserPrincipal principal) {
         Customer customer = getAuthenticatedCustomer(principal);
-        return ResponseEntity.ok(bookingService.getCustomerBookings(customer));
+        List<BookingResponse> bookings = bookingService.getCustomerBookings(customer);
+        if (status != null && !status.isBlank()) {
+            bookings = bookings.stream()
+                    .filter(b -> b.getStatus() != null && status.equalsIgnoreCase(b.getStatus().name()))
+                    .toList();
+        }
+        return ResponseEntity.ok(bookings);
     }
 
     @GetMapping("/{id}")
