@@ -29,4 +29,7 @@ public class VehicleResponse {
 
     @Schema(description = "Thời gian thêm xe vào hệ thống")
     private LocalDateTime createdAt;
+
+    @Schema(description = "Có phải xe mặc định không", example = "true")
+    private Boolean isDefault;
 }

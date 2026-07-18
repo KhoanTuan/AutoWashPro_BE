@@ -35,4 +35,8 @@ public class Vehicle extends BaseEntity {
     @Builder.Default
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
+
+    @Builder.Default
+    @Column(name = "is_default", columnDefinition = "boolean default false")
+    private Boolean isDefault = false;
 }
