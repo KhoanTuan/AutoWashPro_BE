@@ -9,8 +9,19 @@ import com.autowashpro.autowashpro_be.modules.customer.entity.*;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository;
 import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
+import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
+import com.autowashpro.autowashpro_be.modules.booking.entity.Booking;
+import com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus;
+import com.autowashpro.autowashpro_be.modules.booking.event.BookingEvent;
+import com.autowashpro.autowashpro_be.modules.booking.event.BookingEventAction;
+import com.autowashpro.autowashpro_be.modules.marketing.repository.CustomerPromotionRepository;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotionStatus;
+import com.autowashpro.autowashpro_be.modules.marketing.entity.Promotion;
+import com.autowashpro.autowashpro_be.modules.notification.service.RealtimeNotificationService;
+import com.autowashpro.autowashpro_be.modules.notification.entity.NotificationType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -38,6 +49,10 @@ public class CustomerAdminService {
     private final PasswordEncoder passwordEncoder;
     private final SecurityTokenService securityTokenService;
     private final MailService mailService;
+    private final BookingRepository bookingRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final CustomerPromotionRepository customerPromotionRepository;
+    private final RealtimeNotificationService realtimeNotificationService;
 
     @Transactional(readOnly = true)
     public PageResponse<CustomerResponse> listCustomers(String status, String keyword, int page, int size) {
@@ -188,8 +203,65 @@ public class CustomerAdminService {
     @Transactional
     public CustomerResponse updateStatus(Long id, String status) {
         Customer customer = findCustomer(id);
-        customer.setStatus(CustomerStatus.valueOf(status.toUpperCase()));
-        customerRepository.save(customer);
+        CustomerStatus targetStatus = CustomerStatus.valueOf(status.toUpperCase());
+        CustomerStatus oldStatus = customer.getStatus();
+
+        if (oldStatus == targetStatus) {
+            return mapper.toResponse(customer);
+        }
+
+        if (targetStatus == CustomerStatus.INACTIVE) {
+            customer.setStatus(targetStatus);
+            customerRepository.save(customer);
+
+            // Nghiệp vụ: Tự động hủy toàn bộ đơn đặt lịch chưa hoàn thành (PENDING, CONFIRMED, IN_PROGRESS) của khách
+            List<Booking> customerBookings = bookingRepository.findAllByCustomerCustomerIdOrderByCreatedAtDesc(id);
+            for (Booking booking : customerBookings) {
+                if (booking.getStatus() == BookingStatus.PENDING || 
+                    booking.getStatus() == BookingStatus.CONFIRMED || 
+                    booking.getStatus() == BookingStatus.IN_PROGRESS) {
+                    
+                    booking.setStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
+                    
+                    // Hoàn trả voucher nếu có
+                    if (booking.getVoucherCode() != null) {
+                        customerPromotionRepository.findByCustomerCustomerIdAndVoucherCode(id, booking.getVoucherCode())
+                            .ifPresent(cp -> {
+                                cp.setStatus(CustomerPromotionStatus.ISSUED);
+                                customerPromotionRepository.save(cp);
+                                
+                                Promotion promotion = cp.getPromotion();
+                                if (promotion != null && promotion.getRedeemedCount() != null && promotion.getRedeemedCount() > 0) {
+                                    promotion.setRedeemedCount(promotion.getRedeemedCount() - 1);
+                                }
+                            });
+                    }
+                    
+                    bookingRepository.save(booking);
+                    
+                    // Phát sự kiện hủy lịch để giải phóng slot công suất và cập nhật thời gian thực
+                    eventPublisher.publishEvent(new BookingEvent(this, booking, BookingEventAction.CANCELLED,
+                            "Tài khoản khách hàng bị khóa",
+                            "Lịch hẹn " + booking.getBookingCode() + " đã bị hủy tự động do tài khoản khách hàng " + customer.getFullName() + " bị quản trị viên khóa hoạt động."));
+                }
+            }
+
+            // Gửi thông báo hệ thống đến cho Khách hàng
+            realtimeNotificationService.notifyGeneral(id, 
+                    "🚨 Tài khoản đã bị khóa!", 
+                    "Tài khoản của bạn đã bị khóa bởi quản trị viên hệ thống. Mọi lịch hẹn đặt trước của bạn đã bị tự động hủy bỏ.", 
+                    NotificationType.SYSTEM_ALERT);
+            log.info("Locked customer account id={} name={}. Cancelled active bookings and sent alert.", id, customer.getFullName());
+
+        } else if (targetStatus == CustomerStatus.ACTIVE) {
+            // Gửi thông báo hệ thống chào mừng hoạt động lại
+            realtimeNotificationService.notifyGeneral(id, 
+                    "🎉 Khôi phục tài khoản thành công!", 
+                    "Tài khoản của bạn đã được quản trị viên khôi phục hoạt động. Chào mừng bạn quay trở lại với dịch vụ của NovaWash!", 
+                    NotificationType.SYSTEM_ALERT);
+            log.info("Reactivated customer account id={} name={}. Sent welcome notification.", id, customer.getFullName());
+        }
+
         return mapper.toResponse(customer);
     }
 

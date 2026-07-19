@@ -83,7 +83,6 @@ public class AdminCustomerController {
     }
 
     @PatchMapping("/{id}/status")
-    @ApiHidden
     @PreAuthorize("hasAuthority('MANAGE_CUSTOMER_STATUS')")
     @Operation(operationId = "04-07-update-status", summary = "[UPDATE] Khóa / mở khóa tài khoản (ACTIVE ↔ INACTIVE)")
     public ResponseEntity<CustomerResponse> updateStatus(

@@ -14,6 +14,7 @@ import com.autowashpro.autowashpro_be.modules.booking.repository.GarageClosureRe
 import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
+import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
 import com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyTier;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Vehicle;
 import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
@@ -140,6 +141,10 @@ public class BookingService {
 
     @Transactional
     public BookingResponse createBooking(CreateBookingRequest request, Customer customer) {
+        if (customer.getStatus() != CustomerStatus.ACTIVE) {
+            throw new BadRequestException("Tài khoản của bạn hiện đang bị tạm khóa hoặc chưa kích hoạt. Vui lòng liên hệ Hotline xưởng để được hỗ trợ!");
+        }
+
         validateBookingDate(request.getBookingDate(), customer);
 
         // Kiểm tra xem khách hàng có đang bị phạt khóa đặt lịch 7 ngày hay không (do trễ hẹn No-Show >= 3 lần trong vòng 30 ngày)

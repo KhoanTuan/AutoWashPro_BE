@@ -301,6 +301,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                 .tier(tier)
                 .visitCount(seed.visits())
                 .totalSpending(new BigDecimal(seed.spending()))
+                .tierSpending(new BigDecimal(seed.spending()))
                 .loyaltyPoints(seed.points())
                 .lastCompletedBookingAt(seed.visits() > 0 ? LocalDateTime.now().minusDays(seed.lastVisitDaysAgo()) : null)
                 .build());
@@ -316,6 +317,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         customer.setTier(tier);
         customer.setVisitCount(seed.visits());
         customer.setTotalSpending(new BigDecimal(seed.spending()));
+        customer.setTierSpending(new BigDecimal(seed.spending()));
         customer.setLoyaltyPoints(seed.points());
         customer.setLastCompletedBookingAt(seed.visits() > 0 ? LocalDateTime.now().minusDays(seed.lastVisitDaysAgo()) : null);
         customerRepository.save(customer);
@@ -899,25 +901,89 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private void seedPointTransactions() {
         log.info("Seeding point transactions...");
-        // Customer 1: Nguyen Van An (0902000001)
+        
+        // Customer 1: Nguyen Van An (0902000001) - 850 Pts
         customerRepository.findByPhoneNumber("0902000001").ifPresent(c -> {
+            savePointTx(c, 735, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(15));
             savePointTx(c, 50, PointActivityType.EARNED, "NV-1002", LocalDateTime.now().minusDays(1));
             savePointTx(c, 80, PointActivityType.EARNED, "NV-1016", LocalDateTime.now().minusDays(5));
             savePointTx(c, -15, PointActivityType.PENALTY, "NV-1017", LocalDateTime.now().minusDays(8));
         });
 
-        // Customer 2: Tran Thi Binh (0902000002)
+        // Customer 2: Tran Thi Binh (0902000002) - 2100 Pts
         customerRepository.findByPhoneNumber("0902000002").ifPresent(c -> {
+            savePointTx(c, 2480, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(20));
             savePointTx(c, 70, PointActivityType.EARNED, "NV-1005", LocalDateTime.now().minusDays(3));
             savePointTx(c, -450, PointActivityType.REDEEMED, null, LocalDateTime.now().minusDays(10));
         });
 
-        // Customer 4: Pham Thi Dung (0902000004)
+        // Customer 3: Le Minh Cuong (0902000003) - 4800 Pts
+        customerRepository.findByPhoneNumber("0902000003").ifPresent(c -> {
+            savePointTx(c, 4800, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(10));
+        });
+
+        // Customer 4: Pham Thi Dung (0902000004) - 9200 Pts
         customerRepository.findByPhoneNumber("0902000004").ifPresent(c -> {
+            savePointTx(c, 9890, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(25));
             savePointTx(c, 160, PointActivityType.EARNED, "NV-1007", LocalDateTime.now().minusDays(1));
             savePointTx(c, -1000, PointActivityType.REDEEMED, null, LocalDateTime.now().minusDays(5));
             savePointTx(c, 200, PointActivityType.EARNED, "NV-1015", LocalDateTime.now().minusDays(18));
             savePointTx(c, -50, PointActivityType.EXPIRY, null, LocalDateTime.now().minusDays(30));
+        });
+
+        // Customer 5: Hoang Van Em (0902000005) - 120 Pts
+        customerRepository.findByPhoneNumber("0902000005").ifPresent(c -> {
+            savePointTx(c, 120, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(15));
+        });
+
+        // Customer 6: Vo Thi Phuong (0902000006) - 900 Pts
+        customerRepository.findByPhoneNumber("0902000006").ifPresent(c -> {
+            savePointTx(c, 900, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(25));
+        });
+
+        // Customer 7: Dang Quoc Giang (0902000007) - 40 Pts
+        customerRepository.findByPhoneNumber("0902000007").ifPresent(c -> {
+            savePointTx(c, 40, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(5));
+        });
+
+        // Customer 8: Bui Thi Hoa (0902000008) - 3500 Pts
+        customerRepository.findByPhoneNumber("0902000008").ifPresent(c -> {
+            savePointTx(c, 3500, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(8));
+        });
+
+        // Customer 9: Nguyen Van Khanh (0902000009) - 6000 Pts
+        customerRepository.findByPhoneNumber("0902000009").ifPresent(c -> {
+            savePointTx(c, 6000, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(5));
+        });
+
+        // Customer 10: Tran Van Lam (0902000010) - 300 Pts
+        customerRepository.findByPhoneNumber("0902000010").ifPresent(c -> {
+            savePointTx(c, 300, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(30));
+        });
+
+        // Customer 11: Le Thi Mai (0902000011) - 1800 Pts
+        customerRepository.findByPhoneNumber("0902000011").ifPresent(c -> {
+            savePointTx(c, 1800, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(12));
+        });
+
+        // Customer 12: Pham Hoang Nam (0902000012) - 4200 Pts
+        customerRepository.findByPhoneNumber("0902000012").ifPresent(c -> {
+            savePointTx(c, 4200, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(4));
+        });
+
+        // Customer 13: Tran Thi Oanh (0902000013) - 10 Pts
+        customerRepository.findByPhoneNumber("0902000013").ifPresent(c -> {
+            savePointTx(c, 10, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(1));
+        });
+
+        // Customer 14: Le Huu Phuc (0902000014) - 1100 Pts
+        customerRepository.findByPhoneNumber("0902000014").ifPresent(c -> {
+            savePointTx(c, 1100, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(15));
+        });
+
+        // Customer 15: Nguyen Thi Quynh (0902000015) - 3100 Pts
+        customerRepository.findByPhoneNumber("0902000015").ifPresent(c -> {
+            savePointTx(c, 3100, PointActivityType.EARNED, "NV-BASE", LocalDateTime.now().minusDays(18));
         });
     }
 
