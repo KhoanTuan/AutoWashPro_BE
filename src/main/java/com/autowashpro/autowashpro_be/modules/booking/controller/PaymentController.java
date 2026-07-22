@@ -39,20 +39,28 @@ public class PaymentController {
     @PostMapping("/admin/bookings/{id}/checkout")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
     public ResponseEntity<CheckoutResponse> adminCheckout(
-            @PathVariable("id") Long id,
+            @PathVariable("id") String id,
             @Valid @RequestBody CheckoutRequest request) {
 
         log.info("Admin initiated checkout for booking {} with method {}", id, request.getPaymentMethod());
 
         if ("MOMO".equalsIgnoreCase(request.getPaymentMethod())) {
-            Booking booking = bookingRepository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch với ID: " + id));
-            CheckoutResponse response = momoPaymentService.checkoutWithMoMo(id, booking.getCustomer().getCustomerId());
+            Booking booking;
+            try {
+                Long bId = Long.parseLong(id);
+                booking = bookingRepository.findById(bId)
+                        .orElseGet(() -> bookingRepository.findByBookingCode(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch với ID: " + id)));
+            } catch (NumberFormatException e) {
+                booking = bookingRepository.findByBookingCode(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch với mã: " + id));
+            }
+            CheckoutResponse response = momoPaymentService.checkoutWithMoMo(booking.getBookingId(), booking.getCustomer().getCustomerId());
             return ResponseEntity.ok(response);
         } else {
             BookingResponse bookingResponse = bookingService.completeCheckout(id, request.getPaymentMethod());
             CheckoutResponse response = CheckoutResponse.builder()
-                    .bookingId(id)
+                    .bookingId(bookingResponse.getBookingId())
                     .amount(bookingResponse.getFinalAmount())
                     .paymentMethod(request.getPaymentMethod())
                     .status("SUCCESS")

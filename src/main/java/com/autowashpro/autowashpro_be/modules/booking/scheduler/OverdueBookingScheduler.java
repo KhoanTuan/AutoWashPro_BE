@@ -7,6 +7,7 @@ import com.autowashpro.autowashpro_be.modules.marketing.entity.CustomerPromotion
 import com.autowashpro.autowashpro_be.modules.marketing.repository.CustomerPromotionRepository;
 import com.autowashpro.autowashpro_be.modules.booking.event.BookingEvent;
 import com.autowashpro.autowashpro_be.modules.booking.event.BookingEventAction;
+import com.autowashpro.autowashpro_be.modules.booking.event.SlotCapacityChangeEvent;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
 import com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction;
@@ -45,9 +46,9 @@ public class OverdueBookingScheduler {
     @Transactional
     public void cancelOverdueBookings() {
         LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
+        LocalTime cutoffTime = LocalTime.now().minusMinutes(3);
 
-        List<Booking> overdueBookings = bookingRepository.findOverdueBookings(today, now);
+        List<Booking> overdueBookings = bookingRepository.findOverdueBookings(today, cutoffTime);
 
         if (!overdueBookings.isEmpty()) {
             log.info("Found {} overdue bookings to cancel as No-Show", overdueBookings.size());
@@ -118,6 +119,7 @@ public class OverdueBookingScheduler {
 
                     // 4. Phát sự kiện thông báo tương ứng cho khách hàng giải thích chế tài phạt
                     eventPublisher.publishEvent(new BookingEvent(this, booking, BookingEventAction.CANCELLED, title, content));
+                    eventPublisher.publishEvent(new SlotCapacityChangeEvent(booking.getBookingDate(), booking.getTimeSlot().getSlotId()));
 
                 } catch (Exception e) {
                     log.error("Error cancelling overdue booking id: " + booking.getBookingId(), e);

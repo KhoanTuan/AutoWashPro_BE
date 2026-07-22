@@ -43,7 +43,7 @@ public class AdminBookingController {
     @Operation(summary = "Khôi phục check-in trễ", description = "Khôi phục và chuyển trạng thái đơn hàng bị trễ (No-Show) sang IN_PROGRESS nếu slot chưa quá giờ kết thúc và còn chỗ trống")
     @PostMapping("/bookings/{id}/checkin-late")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
-    public ResponseEntity<BookingResponse> checkinLate(@PathVariable("id") Long id) {
+    public ResponseEntity<BookingResponse> checkinLate(@PathVariable("id") String id) {
         return ResponseEntity.ok(bookingService.checkinLate(id));
     }
 

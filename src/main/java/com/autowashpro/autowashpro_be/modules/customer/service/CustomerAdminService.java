@@ -126,7 +126,8 @@ public class CustomerAdminService {
             throw new BadRequestException("License plate already exists");
         }
 
-        LoyaltyTier tier = loyaltyTierRepository.findByTierName("REGULAR")
+        LoyaltyTier tier = loyaltyTierRepository.findByTierName("MEMBER")
+                .or(() -> loyaltyTierRepository.findByTierName("REGULAR"))
                 .orElseThrow(() -> new ResourceNotFoundException("Default loyalty tier not found"));
 
         CustomerStatus status = request.getStatus() != null && !request.getStatus().isBlank()
@@ -338,7 +339,8 @@ public class CustomerAdminService {
             throw new BadRequestException("Email already exists");
         }
 
-        LoyaltyTier tier = loyaltyTierRepository.findByTierName("REGULAR")
+        LoyaltyTier tier = loyaltyTierRepository.findByTierName("MEMBER")
+                .or(() -> loyaltyTierRepository.findByTierName("REGULAR"))
                 .orElseThrow(() -> new ResourceNotFoundException("Default loyalty tier not found"));
 
         Customer customer = Customer.builder()

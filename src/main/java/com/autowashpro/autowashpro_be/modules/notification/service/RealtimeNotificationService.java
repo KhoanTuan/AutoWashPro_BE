@@ -196,13 +196,17 @@ public class RealtimeNotificationService {
     public void saveNotification(NotificationRecipientType recipientType, Long recipientId,
                                   String title, String content, NotificationType type, String refCode) {
         try {
+            String safeTitle = title != null && title.length() > 190 ? title.substring(0, 190) : title;
+            String safeContent = content != null && content.length() > 240 ? content.substring(0, 240) : content;
+            String safeRefCode = refCode != null && refCode.length() > 45 ? refCode.substring(0, 45) : refCode;
+
             Notification notification = Notification.builder()
                     .recipientType(recipientType)
                     .recipientId(recipientId)
-                    .title(title)
-                    .content(content)
+                    .title(safeTitle)
+                    .content(safeContent)
                     .type(type)
-                    .referenceCode(refCode)
+                    .referenceCode(safeRefCode)
                     .isRead(false)
                     .build();
             notificationRepository.save(notification);

@@ -243,7 +243,7 @@ public class DatabaseSeeder implements CommandLineRunner {
             return;
         }
         loyaltyTierRepository.saveAll(List.of(
-                tier("REGULAR", "0", "1.00", 7),
+                tier("MEMBER", "0", "1.00", 7),
                 tier("SILVER", "1000000", "1.20", 10),
                 tier("GOLD", "5000000", "1.50", 12),
                 tier("PLATINUM", "10000000", "2.00", 14)
@@ -261,22 +261,27 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private void seedDemoCustomers() {
         Map<String, LoyaltyTier> tiers = new HashMap<>();
-        loyaltyTierRepository.findAll().forEach(t -> tiers.put(t.getTierName(), t));
+        loyaltyTierRepository.findAll().forEach(t -> {
+            tiers.put(t.getTierName(), t);
+            if ("MEMBER".equalsIgnoreCase(t.getTierName())) {
+                tiers.put("REGULAR", t);
+            }
+        });
 
         List<DemoCustomerSeed> seeds = List.of(
-                new DemoCustomerSeed("annguyen", "Nguyen Van An", "0902000001", "an.nguyen@email.com", "REGULAR", CustomerStatus.ACTIVE, 12, 2400000, 850, 3),
+                new DemoCustomerSeed("annguyen", "Nguyen Van An", "0902000001", "an.nguyen@email.com", "MEMBER", CustomerStatus.ACTIVE, 12, 2400000, 850, 3),
                 new DemoCustomerSeed("binhtran", "Tran Thi Binh", "0902000002", "binh.tran@email.com", "SILVER", CustomerStatus.ACTIVE, 28, 5200000, 2100, 5),
                 new DemoCustomerSeed("cuongle", "Le Minh Cuong", "0902000003", "cuong.le@email.com", "GOLD", CustomerStatus.ACTIVE, 45, 9800000, 4800, 2),
                 new DemoCustomerSeed("dungpham", "Pham Thi Dung", "0902000004", "dung.pham@email.com", "PLATINUM", CustomerStatus.ACTIVE, 62, 15200000, 9200, 1),
-                new DemoCustomerSeed("emhoang", "Hoang Van Em", "0902000005", "em.hoang@email.com", "REGULAR", CustomerStatus.ACTIVE, 5, 650000, 120, 15),
+                new DemoCustomerSeed("emhoang", "Hoang Van Em", "0902000005", "em.hoang@email.com", "MEMBER", CustomerStatus.ACTIVE, 5, 650000, 120, 15),
                 new DemoCustomerSeed("phuongvo", "Vo Thi Phuong", "0902000006", "phuong.vo@email.com", "SILVER", CustomerStatus.INACTIVE, 18, 3100000, 900, 25),
-                new DemoCustomerSeed("giangdang", "Dang Quoc Giang", "0902000007", "giang.dang@email.com", "REGULAR", CustomerStatus.ACTIVE, 2, 180000, 40, 45),
+                new DemoCustomerSeed("giangdang", "Dang Quoc Giang", "0902000007", "giang.dang@email.com", "MEMBER", CustomerStatus.ACTIVE, 2, 180000, 40, 45),
                 new DemoCustomerSeed("hoabui", "Bui Thi Hoa", "0902000008", "hoa.bui@email.com", "GOLD", CustomerStatus.ACTIVE, 35, 7200000, 3500, 8),
                 new DemoCustomerSeed("khanhnguyen", "Nguyen Van Khanh", "0902000009", "khanh.nguyen@email.com", "PLATINUM", CustomerStatus.ACTIVE, 50, 12000000, 6000, 35),
-                new DemoCustomerSeed("lamtran", "Tran Van Lam", "0902000010", "lam.tran@email.com", "REGULAR", CustomerStatus.ACTIVE, 8, 1100000, 300, 50),
+                new DemoCustomerSeed("lamtran", "Tran Van Lam", "0902000010", "lam.tran@email.com", "MEMBER", CustomerStatus.ACTIVE, 8, 1100000, 300, 50),
                 new DemoCustomerSeed("maile", "Le Thi Mai", "0902000011", "mai.le@email.com", "SILVER", CustomerStatus.ACTIVE, 20, 4200000, 1800, 12),
                 new DemoCustomerSeed("nampham", "Pham Hoang Nam", "0902000012", "nam.pham@email.com", "GOLD", CustomerStatus.ACTIVE, 40, 8500000, 4200, 60),
-                new DemoCustomerSeed("oanhtran", "Tran Thi Oanh", "0902000013", "oanh.tran@email.com", "REGULAR", CustomerStatus.ACTIVE, 1, 50000, 10, 95),
+                new DemoCustomerSeed("oanhtran", "Tran Thi Oanh", "0902000013", "oanh.tran@email.com", "MEMBER", CustomerStatus.ACTIVE, 1, 50000, 10, 95),
                 new DemoCustomerSeed("phucle", "Le Huu Phuc", "0902000014", "phuc.le@email.com", "SILVER", CustomerStatus.ACTIVE, 15, 2800000, 1100, 4),
                 new DemoCustomerSeed("quynhnguyen", "Nguyen Thi Quynh", "0902000015", "quynh.nguyen@email.com", "GOLD", CustomerStatus.ACTIVE, 31, 6800000, 3100, 18)
         );
@@ -373,14 +378,30 @@ public class DatabaseSeeder implements CommandLineRunner {
     private void seedTimeSlots() {
         if (timeSlotRepository.count() > 0) return;
         List<TimeSlot> slots = List.of(
-                TimeSlot.builder().startTime(LocalTime.of(8, 0)).endTime(LocalTime.of(9, 0)).maxCapacity(3).isActive(true).displayOrder(1).dayOfWeek("ALL").build(),
-                TimeSlot.builder().startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(10, 0)).maxCapacity(3).isActive(true).displayOrder(2).dayOfWeek("ALL").build(),
-                TimeSlot.builder().startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0)).maxCapacity(3).isActive(true).displayOrder(3).dayOfWeek("ALL").build(),
-                TimeSlot.builder().startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(15, 0)).maxCapacity(3).isActive(true).displayOrder(4).dayOfWeek("ALL").build(),
-                TimeSlot.builder().startTime(LocalTime.of(15, 0)).endTime(LocalTime.of(16, 0)).maxCapacity(3).isActive(true).displayOrder(5).dayOfWeek("ALL").build(),
-                TimeSlot.builder().startTime(LocalTime.of(16, 0)).endTime(LocalTime.of(17, 0)).maxCapacity(3).isActive(true).displayOrder(6).dayOfWeek("ALL").build(),
-                TimeSlot.builder().startTime(LocalTime.of(17, 0)).endTime(LocalTime.of(18, 0)).maxCapacity(5).isActive(true).displayOrder(7).dayOfWeek("WEEKEND").build(),
-                TimeSlot.builder().startTime(LocalTime.of(18, 0)).endTime(LocalTime.of(19, 0)).maxCapacity(5).isActive(true).displayOrder(8).dayOfWeek("WEEKEND").build()
+                TimeSlot.builder().startTime(LocalTime.of(7, 30)).endTime(LocalTime.of(8, 0)).maxCapacity(3).isActive(true).displayOrder(1).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(8, 0)).endTime(LocalTime.of(8, 30)).maxCapacity(3).isActive(true).displayOrder(2).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(8, 30)).endTime(LocalTime.of(9, 0)).maxCapacity(3).isActive(true).displayOrder(3).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(9, 30)).maxCapacity(3).isActive(true).displayOrder(4).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(9, 30)).endTime(LocalTime.of(10, 0)).maxCapacity(3).isActive(true).displayOrder(5).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(10, 30)).maxCapacity(3).isActive(true).displayOrder(6).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(10, 30)).endTime(LocalTime.of(11, 0)).maxCapacity(3).isActive(true).displayOrder(7).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(11, 0)).endTime(LocalTime.of(11, 30)).maxCapacity(3).isActive(true).displayOrder(8).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(11, 30)).endTime(LocalTime.of(12, 0)).maxCapacity(3).isActive(true).displayOrder(9).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(12, 0)).endTime(LocalTime.of(12, 30)).maxCapacity(3).isActive(true).displayOrder(10).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(12, 30)).endTime(LocalTime.of(13, 0)).maxCapacity(3).isActive(true).displayOrder(11).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(13, 0)).endTime(LocalTime.of(13, 30)).maxCapacity(3).isActive(true).displayOrder(12).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(13, 30)).endTime(LocalTime.of(14, 0)).maxCapacity(3).isActive(true).displayOrder(13).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(14, 30)).maxCapacity(3).isActive(true).displayOrder(14).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(14, 30)).endTime(LocalTime.of(15, 0)).maxCapacity(3).isActive(true).displayOrder(15).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(15, 0)).endTime(LocalTime.of(15, 30)).maxCapacity(3).isActive(true).displayOrder(16).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(15, 30)).endTime(LocalTime.of(16, 0)).maxCapacity(3).isActive(true).displayOrder(17).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(16, 0)).endTime(LocalTime.of(16, 30)).maxCapacity(3).isActive(true).displayOrder(18).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(16, 30)).endTime(LocalTime.of(17, 0)).maxCapacity(3).isActive(true).displayOrder(19).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(17, 0)).endTime(LocalTime.of(17, 30)).maxCapacity(3).isActive(true).displayOrder(20).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(17, 30)).endTime(LocalTime.of(18, 0)).maxCapacity(3).isActive(true).displayOrder(21).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(18, 0)).endTime(LocalTime.of(18, 30)).maxCapacity(3).isActive(true).displayOrder(22).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(18, 30)).endTime(LocalTime.of(19, 0)).maxCapacity(3).isActive(true).displayOrder(23).dayOfWeek("ALL").build(),
+                TimeSlot.builder().startTime(LocalTime.of(19, 0)).endTime(LocalTime.of(19, 30)).maxCapacity(3).isActive(true).displayOrder(24).dayOfWeek("ALL").build()
         );
         timeSlotRepository.saveAll(slots);
     }
@@ -406,12 +427,12 @@ public class DatabaseSeeder implements CommandLineRunner {
         ServiceCatalog addHelmet = allServices.stream().filter(s -> "ADD-HELMET".equals(s.getServiceCode())).findFirst().orElse(null);
         ServiceCatalog addChain = allServices.stream().filter(s -> "ADD-CHAIN".equals(s.getServiceCode())).findFirst().orElse(null);
 
-        TimeSlot slot8_9 = allSlots.stream().filter(s -> s.getDisplayOrder() == 1).findFirst().orElse(allSlots.get(0));
-        TimeSlot slot9_10 = allSlots.stream().filter(s -> s.getDisplayOrder() == 2).findFirst().orElse(allSlots.get(0));
-        TimeSlot slot10_11 = allSlots.stream().filter(s -> s.getDisplayOrder() == 3).findFirst().orElse(allSlots.get(0));
-        TimeSlot slot14_15 = allSlots.stream().filter(s -> s.getDisplayOrder() == 4).findFirst().orElse(allSlots.get(0));
-        TimeSlot slot15_16 = allSlots.stream().filter(s -> s.getDisplayOrder() == 5).findFirst().orElse(allSlots.get(0));
-        TimeSlot slot16_17 = allSlots.stream().filter(s -> s.getDisplayOrder() == 6).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot8_9 = allSlots.stream().filter(s -> s.getDisplayOrder() == 2).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot9_10 = allSlots.stream().filter(s -> s.getDisplayOrder() == 4).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot10_11 = allSlots.stream().filter(s -> s.getDisplayOrder() == 6).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot14_15 = allSlots.stream().filter(s -> s.getDisplayOrder() == 14).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot15_16 = allSlots.stream().filter(s -> s.getDisplayOrder() == 16).findFirst().orElse(allSlots.get(0));
+        TimeSlot slot16_17 = allSlots.stream().filter(s -> s.getDisplayOrder() == 18).findFirst().orElse(allSlots.get(0));
 
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(1);

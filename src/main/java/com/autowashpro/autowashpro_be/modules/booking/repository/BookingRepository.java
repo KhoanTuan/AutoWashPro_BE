@@ -38,6 +38,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findCompletedBookingsWithVoucher();
 
     @Query("SELECT b FROM Booking b WHERE b.status = 'PENDING' AND " +
-           "(b.bookingDate < :today OR (b.bookingDate = :today AND b.timeSlot.endTime < :now))")
-    List<Booking> findOverdueBookings(LocalDate today, LocalTime now);
+           "(b.bookingDate < :today OR (b.bookingDate = :today AND b.timeSlot.startTime < :cutoffTime))")
+    List<Booking> findOverdueBookings(LocalDate today, LocalTime cutoffTime);
 }

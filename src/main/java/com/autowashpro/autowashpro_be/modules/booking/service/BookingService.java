@@ -511,20 +511,34 @@ public class BookingService {
     }
 
     @Transactional
-    public BookingResponse checkinLate(Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch: " + bookingId));
+    public BookingResponse checkinLate(String identifier) {
+        Booking booking;
+        try {
+            Long bookingId = Long.parseLong(identifier);
+            booking = bookingRepository.findById(bookingId)
+                    .orElseGet(() -> bookingRepository.findByBookingCode(identifier)
+                            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch: " + identifier)));
+        } catch (NumberFormatException e) {
+            booking = bookingRepository.findByBookingCode(identifier)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch với mã: " + identifier));
+        }
 
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new BadRequestException("Đơn đặt lịch không ở trạng thái chờ phục vụ (PENDING)");
+        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.CANCELLED_NO_SHOW) {
+            throw new BadRequestException("Đơn đặt lịch không ở trạng thái hợp lệ để cứu đơn (PENDING hoặc CANCELLED_NO_SHOW)");
         }
 
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
 
-        if (booking.getBookingDate().isBefore(today) ||
-                (booking.getBookingDate().isEqual(today) && now.isAfter(booking.getTimeSlot().getEndTime()))) {
-            throw new BadRequestException("Không thể khôi phục check-in! Đơn đặt lịch đã quá giờ kết thúc slot (" + booking.getTimeSlot().getEndTime() + ").");
+        // Ràng buộc mốc thời gian cứu đơn linh hoạt trong ngày (Tối đa 180 phút)
+        LocalTime maxLateTime = booking.getTimeSlot().getStartTime().plusMinutes(15);
+
+        if (!booking.getBookingDate().isEqual(today)) {
+            throw new BadRequestException("Không thể cứu đơn! Đơn đặt lịch thuộc ngày " + booking.getBookingDate() + ", không phải ngày hôm nay (" + today + ").");
+        }
+
+        if (now.isAfter(maxLateTime)) {
+            throw new BadRequestException("Không thể khôi phục check-in! Đơn đặt lịch đã trễ quá 15 phút so với giờ bắt đầu slot (" + booking.getTimeSlot().getStartTime() + "). Quá hạn cứu đơn, bắt buộc phải đặt ca mới.");
         }
 
         // Kiểm tra công suất
@@ -539,12 +553,13 @@ public class BookingService {
             throw new BadRequestException("Khung giờ này đã đầy công suất (Đã đặt: " + bookedCount + ", Đã khóa: " + lockedCount + "). Không thể check-in!");
         }
 
-        booking.setStatus(BookingStatus.IN_PROGRESS);
+        booking.setStatus(BookingStatus.PENDING);
         Booking savedBooking = bookingRepository.save(booking);
 
         eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.CHECKED_IN,
-                "Check-in trễ thành công!",
-                "Đơn đặt lịch " + booking.getBookingCode() + " đã check-in trễ giờ thành công tại quầy và bắt đầu dọn rửa."));
+                "Cứu đơn check-in trễ thành công!",
+                "Đơn " + booking.getBookingCode() + " đã khôi phục check-in trễ thành công tại quầy."));
+        eventPublisher.publishEvent(new SlotCapacityChangeEvent(savedBooking.getBookingDate(), savedBooking.getTimeSlot().getSlotId()));
 
         return mapToResponse(savedBooking);
     }
@@ -625,19 +640,45 @@ public class BookingService {
     }
 
     @Transactional
-    public BookingResponse completeCheckout(Long bookingId, String paymentMethod) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch: " + bookingId));
+    public BookingResponse completeCheckout(String identifier, String paymentMethod) {
+        Booking booking;
+        try {
+            Long bookingId = Long.parseLong(identifier);
+            booking = bookingRepository.findById(bookingId)
+                    .orElseGet(() -> bookingRepository.findByBookingCode(identifier)
+                            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch: " + identifier)));
+        } catch (NumberFormatException e) {
+            booking = bookingRepository.findByBookingCode(identifier)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt lịch với mã: " + identifier));
+        }
 
         if (booking.getPaymentStatus() == PaymentStatus.PAID) {
             throw new BadRequestException("Đơn đặt lịch này đã được thanh toán rồi!");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+
+        if (booking.getBookingDate().isBefore(today)) {
+            throw new BadRequestException("Không thể thanh toán! Đơn đặt lịch thuộc ngày trong quá khứ (" + booking.getBookingDate() + ").");
+        }
+        if (booking.getBookingDate().isAfter(today)) {
+            throw new BadRequestException("Không thể thanh toán trước ngày hẹn! Đơn đặt lịch được hẹn cho ngày " + booking.getBookingDate() + ".");
+        }
+
+        LocalTime startTime = booking.getTimeSlot().getStartTime();
+        if (now.isBefore(startTime.minusMinutes(10))) {
+            throw new BadRequestException("Chưa đến giờ check-in (Chỉ cho phép thanh toán từ 10 phút trước giờ slot " + startTime + ").");
+        }
+        if (now.isAfter(startTime.plusMinutes(5)) && booking.getStatus() == BookingStatus.PENDING) {
+            throw new BadRequestException("Đã quá 5 phút so với giờ slot (" + startTime + "). Không thể thanh toán thường. Vui lòng sử dụng luồng Cứu Đơn.");
         }
 
         booking.setPaymentStatus(PaymentStatus.PAID);
         booking.setStatus(BookingStatus.COMPLETED);
         Booking savedBooking = bookingRepository.save(booking);
 
-        log.info("Booking marked as COMPLETED and PAID via: {} for bookingId: {}", paymentMethod, bookingId);
+        log.info("Booking marked as COMPLETED and PAID via: {} for bookingId: {}", paymentMethod, booking.getBookingId());
 
         Customer customer = booking.getCustomer();
         BigDecimal amount = booking.getFinalAmount() != null ? booking.getFinalAmount() : booking.getTotalEstimatedAmount();
