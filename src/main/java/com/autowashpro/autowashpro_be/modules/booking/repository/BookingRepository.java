@@ -24,6 +24,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findAllByBookingDate(LocalDate bookingDate);
     long countByCustomerCustomerIdAndStatusInAndUpdatedAtAfter(Long customerId, Collection<BookingStatus> statuses, java.time.LocalDateTime since);
     Optional<Booking> findFirstByCustomerCustomerIdAndStatusOrderByUpdatedAtDesc(Long customerId, BookingStatus status);
+    List<Booking> findByStatus(BookingStatus status);
 
     @Query("SELECT b FROM Booking b WHERE " +
            "LOWER(b.bookingCode) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
@@ -37,7 +38,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("SELECT b FROM Booking b WHERE b.status = 'COMPLETED' AND b.voucherCode IS NOT NULL")
     List<Booking> findCompletedBookingsWithVoucher();
 
-    @Query("SELECT b FROM Booking b WHERE b.status = 'PENDING' AND " +
+    @Query("SELECT b FROM Booking b WHERE (b.status = com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus.PENDING OR b.status = com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus.CONFIRMED) AND " +
            "(b.bookingDate < :today OR (b.bookingDate = :today AND b.timeSlot.startTime < :cutoffTime))")
     List<Booking> findOverdueBookings(LocalDate today, LocalTime cutoffTime);
 }

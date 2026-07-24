@@ -24,28 +24,28 @@ public class AdminDashboardController {
     private final AdminDashboardService dashboardService;
 
     @GetMapping("/kpi-summary")
-    @PreAuthorize("hasAuthority('VIEW_DASHBOARD_STATS')")
+    @PreAuthorize("hasAuthority('VIEW_DASHBOARD') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(summary = "[READ] Thẻ KPI thông số tổng quan", description = "Trả về 4 thẻ KPI động theo tham số lọc timeRange=TODAY|WEEK|MONTH|YEAR|CUSTOM.")
     public ResponseEntity<DashboardKpiSummaryResponse> getKpiSummary(@ParameterObject DashboardFilterRequest filter) {
         return ResponseEntity.ok(dashboardService.getKpiSummary(filter));
     }
 
     @GetMapping("/revenue-trends")
-    @PreAuthorize("hasAuthority('VIEW_DASHBOARD_STATS')")
+    @PreAuthorize("hasAuthority('VIEW_DASHBOARD') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(summary = "[READ] Biểu đồ 1: Stacked Bar cơ cấu dịch vụ & đường AOV", description = "Trả về doanh thu phân tầng 3 gói rửa xe kết hợp đường xu hướng giá trị đơn hàng trung bình.")
     public ResponseEntity<List<RevenueTrendResponse>> getRevenueTrends(@ParameterObject DashboardFilterRequest filter) {
         return ResponseEntity.ok(dashboardService.getRevenueTrends(filter));
     }
 
     @GetMapping("/booking-distribution")
-    @PreAuthorize("hasAuthority('VIEW_DASHBOARD_STATS')")
+    @PreAuthorize("hasAuthority('VIEW_DASHBOARD') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(summary = "[READ] Biểu đồ Donut: Phân phối trạng thái đơn hàng", description = "Trả về tỷ lệ % và số lượng theo 4 trạng thái đặt lịch (Completed, Paid, Unpaid, Cancelled).")
     public ResponseEntity<BookingDistributionResponse> getBookingDistribution(@ParameterObject DashboardFilterRequest filter) {
         return ResponseEntity.ok(dashboardService.getBookingDistribution(filter));
     }
 
     @GetMapping("/slot-performance")
-    @PreAuthorize("hasAuthority('VIEW_DASHBOARD_STATS')")
+    @PreAuthorize("hasAuthority('VIEW_DASHBOARD') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(summary = "[READ] Biểu đồ 2: Hiệu suất 12 Khung giờ E2E-1 & Cảnh báo rủi ro", description = "Trả về % lấp đầy và % hủy/trễ theo các slot cấu hình E2E-1. Tự động bật cờ isHighRisk khi lấp đầy < 50% và no-show > 20%.")
     public ResponseEntity<List<SlotPerformanceResponse>> getSlotPerformance(@ParameterObject DashboardFilterRequest filter) {
         return ResponseEntity.ok(dashboardService.getSlotPerformances(filter));

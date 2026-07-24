@@ -21,20 +21,20 @@ public class AdminTimeSlotController {
     private final TimeSlotService timeSlotService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOT_CONFIG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.VIEW_SERVICES + "') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     public ResponseEntity<List<TimeSlotResponse>> getAllSlots(
             @RequestParam(name = "activeOnly", defaultValue = "false") boolean activeOnly) {
         return ResponseEntity.ok(timeSlotService.getAllSlots(activeOnly));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOT_CONFIG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOTS + "') or hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<TimeSlotResponse> createSlot(@Valid @RequestBody TimeSlotRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(timeSlotService.createSlot(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOT_CONFIG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOTS + "') or hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<TimeSlotResponse> updateSlot(
             @PathVariable Long id,
             @Valid @RequestBody TimeSlotRequest request) {
@@ -42,7 +42,7 @@ public class AdminTimeSlotController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOT_CONFIG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOTS + "') or hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<TimeSlotResponse> toggleStatus(@PathVariable Long id) {
         return ResponseEntity.ok(timeSlotService.toggleStatus(id));
     }

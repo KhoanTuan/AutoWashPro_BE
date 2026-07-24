@@ -117,7 +117,20 @@ public class DashboardQueryRepository {
             return trends;
         }
 
-        // Lọc theo WEEK, MONTH, YEAR, CUSTOM -> Gom nhóm theo ngày/chu kỳ
+        if ("YEAR".equalsIgnoreCase(timeRange)) {
+            // Lọc theo YEAR: Hiển thị đầy đủ 12 tháng (Tháng 1 đến Tháng 12)
+            int year = fromDate.getYear();
+            for (int month = 1; month <= 12; month++) {
+                LocalDate monthStart = LocalDate.of(year, month, 1);
+                LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
+                if (monthEnd.isAfter(toDate)) monthEnd = toDate;
+                String label = "Tháng " + month;
+                trends.add(buildRevenueTrendForRange(monthStart, monthEnd, null, label));
+            }
+            return trends;
+        }
+
+        // Lọc theo WEEK, MONTH, CUSTOM -> Gom nhóm theo ngày/chu kỳ
         long days = ChronoUnit.DAYS.between(fromDate, toDate) + 1;
         int step = (int) Math.max(1, days / 5);
 
@@ -128,7 +141,6 @@ public class DashboardQueryRepository {
 
             String label = switch (timeRange.toUpperCase()) {
                 case "WEEK" -> current.getDayOfWeek().getValue() == 7 ? "Chủ Nhật" : "Thứ " + (current.getDayOfWeek().getValue() + 1);
-                case "YEAR" -> "Tháng " + current.getMonthValue();
                 default -> "Ngày " + current.getDayOfMonth() + "-" + next.getDayOfMonth();
             };
 
@@ -273,7 +285,7 @@ public class DashboardQueryRepository {
                     .getSingleResult();
 
             double occupancyRate = configuredCapacity > 0 ? (actualBooked * 100.0 / configuredCapacity) : 0.0;
-            double noShowRate = actualBooked > 0 ? (cancelledBooked * 100.0 / actualBooked) : (occupancyRate < 40.0 ? 22.5 : 8.0);
+            double noShowRate = actualBooked > 0 ? (cancelledBooked * 100.0 / actualBooked) : 0.0;
 
             boolean isHighRisk = occupancyRate < 50.0 && noShowRate > 20.0;
 

@@ -32,14 +32,14 @@ public class AdminGarageClosureController {
     private final BookingRepository bookingRepository;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOT_CONFIG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.VIEW_SERVICES + "') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(summary = "Lấy danh sách các ngày xưởng nghỉ lễ")
     public ResponseEntity<List<GarageClosure>> getAllClosures() {
         return ResponseEntity.ok(garageClosureRepository.findAll());
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOT_CONFIG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOTS + "') or hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "Thêm ngày nghỉ lễ mới")
     public ResponseEntity<GarageClosure> createClosure(@RequestBody CreateClosureRequest request) {
         if (request.getClosureDate() == null) {
@@ -71,7 +71,7 @@ public class AdminGarageClosureController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOT_CONFIG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SLOTS + "') or hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "Xóa lịch nghỉ lễ (mở cửa trở lại)")
     public ResponseEntity<Void> deleteClosure(@PathVariable Long id) {
         if (!garageClosureRepository.existsById(id)) {

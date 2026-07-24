@@ -658,21 +658,21 @@ public class BookingService {
 
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
-
-        if (booking.getBookingDate().isBefore(today)) {
-            throw new BadRequestException("Không thể thanh toán! Đơn đặt lịch thuộc ngày trong quá khứ (" + booking.getBookingDate() + ").");
-        }
-        if (booking.getBookingDate().isAfter(today)) {
-            throw new BadRequestException("Không thể thanh toán trước ngày hẹn! Đơn đặt lịch được hẹn cho ngày " + booking.getBookingDate() + ".");
-        }
-
-        LocalTime startTime = booking.getTimeSlot().getStartTime();
-        if (now.isBefore(startTime.minusMinutes(10))) {
-            throw new BadRequestException("Chưa đến giờ check-in (Chỉ cho phép thanh toán từ 10 phút trước giờ slot " + startTime + ").");
-        }
-        if (now.isAfter(startTime.plusMinutes(5)) && booking.getStatus() == BookingStatus.PENDING) {
-            throw new BadRequestException("Đã quá 5 phút so với giờ slot (" + startTime + "). Không thể thanh toán thường. Vui lòng sử dụng luồng Cứu Đơn.");
-        }
+//
+//        if (booking.getBookingDate().isBefore(today)) {
+//            throw new BadRequestException("Không thể thanh toán! Đơn đặt lịch thuộc ngày trong quá khứ (" + booking.getBookingDate() + ").");
+//        }
+//        if (booking.getBookingDate().isAfter(today)) {
+//            throw new BadRequestException("Không thể thanh toán trước ngày hẹn! Đơn đặt lịch được hẹn cho ngày " + booking.getBookingDate() + ".");
+//        }
+//
+//        LocalTime startTime = booking.getTimeSlot().getStartTime();
+//        if (now.isBefore(startTime.minusMinutes(10))) {
+//            throw new BadRequestException("Chưa đến giờ check-in (Chỉ cho phép thanh toán từ 10 phút trước giờ slot " + startTime + ").");
+//        }
+//        if (now.isAfter(startTime.plusMinutes(30)) && booking.getStatus() == BookingStatus.PENDING) {
+//            throw new BadRequestException("Đã quá 5 phút so với giờ slot (" + startTime + "). Không thể thanh toán thường. Vui lòng sử dụng luồng Cứu Đơn.");
+//        }
 
         booking.setPaymentStatus(PaymentStatus.PAID);
         booking.setStatus(BookingStatus.COMPLETED);

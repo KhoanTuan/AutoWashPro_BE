@@ -28,7 +28,7 @@ public class AdminFeedbackController {
     private final AdminFeedbackService feedbackService;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('VIEW_FEEDBACKS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(summary = "[READ] Danh sách Ý kiến đánh giá & Khiếu nại", description = "Hỗ trợ lọc theo trạng thái (NEW/RESOLVED) và số sao đánh giá (ví dụ <= 2 sao).")
     public ResponseEntity<Page<FeedbackResponse>> getFeedbacks(
             @RequestParam(required = false) FeedbackStatus status,
@@ -38,7 +38,7 @@ public class AdminFeedbackController {
     }
 
     @PutMapping("/{id}/resolve")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('RESOLVE_FEEDBACK') or hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "[RESOLVE] Xử lý khiếu nại & Gửi voucher đền bù", description = "Ghi nhận lời giải trình khắc phục và hỗ trợ 1-click tự động phát hành Voucher Đền Bù tạ lỗi vào ví khách hàng.")
     public ResponseEntity<FeedbackResponse> resolveFeedback(
             @PathVariable Long id,

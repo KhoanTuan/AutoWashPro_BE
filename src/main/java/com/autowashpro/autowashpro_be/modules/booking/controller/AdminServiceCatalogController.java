@@ -21,20 +21,20 @@ public class AdminServiceCatalogController {
     private final ServiceCatalogService serviceCatalogService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SERVICE_CATALOG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.VIEW_SERVICES + "') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     public ResponseEntity<List<ServiceCatalogResponse>> getAllServices(
             @RequestParam(name = "activeOnly", defaultValue = "false") boolean activeOnly) {
         return ResponseEntity.ok(serviceCatalogService.getAllServices(activeOnly));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SERVICE_CATALOG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SERVICES + "') or hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ServiceCatalogResponse> createService(@Valid @RequestBody ServiceCatalogRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(serviceCatalogService.createService(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SERVICE_CATALOG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SERVICES + "') or hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ServiceCatalogResponse> updateService(
             @PathVariable Long id,
             @Valid @RequestBody ServiceCatalogRequest request) {
@@ -42,7 +42,7 @@ public class AdminServiceCatalogController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SERVICE_CATALOG + "') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('" + PermissionCatalog.MANAGE_SERVICES + "') or hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ServiceCatalogResponse> toggleStatus(@PathVariable Long id) {
         return ResponseEntity.ok(serviceCatalogService.toggleStatus(id));
     }

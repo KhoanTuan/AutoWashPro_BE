@@ -25,40 +25,41 @@ public final class PermissionCatalog {
     public static final Set<String> PERMISSION_LOCKED_ROLE_NAMES = Set.of("ROLE_ADMIN");
 
     /** Roles that cannot be deleted under any circumstance. */
-    public static final Set<String> NON_DELETABLE_ROLE_NAMES = Set.of("ROLE_ADMIN");
+    public static final Set<String> NON_DELETABLE_ROLE_NAMES = Set.of("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CASHIER");
 
-    /** Permission codes for staff admin APIs & RBAC */
-    public static final String READ_STAFF = "READ_STAFF";
-    public static final String CREATE_UPDATE_STAFF = "CREATE_UPDATE_STAFF";
-    public static final String DELETE_STAFF = "DELETE_STAFF";
-    public static final String ASSIGN_ROLE = "ASSIGN_ROLE";
-    public static final String MANAGE_ROLE = "MANAGE_ROLE";
-    public static final String CONFIG_RBAC_MATRIX = "CONFIG_RBAC_MATRIX";
+    // 1. Đặt lịch & Vận hành quầy POS
+    public static final String VIEW_BOOKINGS = "VIEW_BOOKINGS";
+    public static final String UPDATE_BOOKING_STATUS = "UPDATE_BOOKING_STATUS";
+    public static final String CHECKIN_LATE = "CHECKIN_LATE";
+    public static final String CHECKOUT_BOOKING = "CHECKOUT_BOOKING";
+    public static final String LOCK_SLOT = "LOCK_SLOT";
 
-    /** Permission codes for Customer CRM & Loyalty */
-    public static final String VIEW_CUSTOMER_PROFILE = "VIEW_CUSTOMER_PROFILE";
+    // 2. Dịch vụ & Khung giờ
+    public static final String VIEW_SERVICES = "VIEW_SERVICES";
+    public static final String MANAGE_SERVICES = "MANAGE_SERVICES";
+    public static final String MANAGE_SLOTS = "MANAGE_SLOTS";
+
+    // 3. Khách hàng CRM
+    public static final String VIEW_CUSTOMERS = "VIEW_CUSTOMERS";
     public static final String MANAGE_CUSTOMER_STATUS = "MANAGE_CUSTOMER_STATUS";
-    public static final String MANAGE_LOYALTY_CONFIG = "MANAGE_LOYALTY_CONFIG";
 
-    /** Permission codes for Booking & Operations (POS, Queue, Wash Progress) */
-    public static final String CREATE_WALK_IN_BOOKING = "CREATE_WALK_IN_BOOKING";
-    public static final String CASHIER_CHECKIN = "CASHIER_CHECKIN";
-    public static final String CANCEL_BOOKING = "CANCEL_BOOKING";
-    public static final String VIEW_SLOT_AVAILABILITY = "VIEW_SLOT_AVAILABILITY";
-    public static final String VIEW_STATION_QUEUE = "VIEW_STATION_QUEUE";
-    public static final String MANAGE_WASH_PROGRESS = "MANAGE_WASH_PROGRESS";
-    public static final String MONITOR_REALTIME_QUEUE = "MONITOR_REALTIME_QUEUE";
+    // 4. Admin Dashboard
+    public static final String VIEW_DASHBOARD = "VIEW_DASHBOARD";
 
-    /** Permission codes for Services, Slots & Station Settings */
-    public static final String MANAGE_SERVICE_CATALOG = "MANAGE_SERVICE_CATALOG";
-    public static final String MANAGE_SLOT_CONFIG = "MANAGE_SLOT_CONFIG";
-    public static final String MANAGE_STATION_SETTINGS = "MANAGE_STATION_SETTINGS";
-    public static final String VIEW_DASHBOARD_STATS = "VIEW_DASHBOARD_STATS";
+    // 5. Khuyến mãi & Tặng quà
+    public static final String VIEW_PROMOTIONS = "VIEW_PROMOTIONS";
+    public static final String MANAGE_PROMOTIONS = "MANAGE_PROMOTIONS";
+    public static final String GRANT_PROMOTIONS = "GRANT_PROMOTIONS";
 
-    /** Permission codes for Notifications (Phase 2) */
-    public static final String SEND_BOOKING_NOTIFICATION = "SEND_BOOKING_NOTIFICATION";
-    public static final String SEND_INCIDENT_ALERT = "SEND_INCIDENT_ALERT";
-    public static final String VIEW_NOTIFICATION_LOG = "VIEW_NOTIFICATION_LOG";
+    // 6. Đánh giá & CSKH
+    public static final String VIEW_FEEDBACKS = "VIEW_FEEDBACKS";
+    public static final String RESOLVE_FEEDBACK = "RESOLVE_FEEDBACK";
+
+    // 7. Thông báo trạm
+    public static final String VIEW_NOTIFICATIONS = "VIEW_NOTIFICATIONS";
+
+    // 8. Role & RBAC Matrix
+    public static final String CONFIG_RBAC_MATRIX = "CONFIG_RBAC_MATRIX";
 
     @Getter
     @RequiredArgsConstructor
@@ -71,38 +72,33 @@ public final class PermissionCatalog {
     }
 
     public static final List<Definition> ALL = List.of(
-            // ── Phase 1: Identity & RBAC ──
-            def(READ_STAFF, "Xem danh sách / chi tiết nhân viên", "Identity & RBAC", PHASE_CORE),
-            def(CREATE_UPDATE_STAFF, "Tạo / sửa / khóa nhân viên", "Identity & RBAC", PHASE_CORE),
-            def(DELETE_STAFF, "Xóa nhân viên (soft/hard)", "Identity & RBAC", PHASE_CORE),
-            def(ASSIGN_ROLE, "Gán vai trò cho nhân viên", "Identity & RBAC", PHASE_CORE),
-            def(MANAGE_ROLE, "Tạo / sửa / xóa vai trò", "Identity & RBAC", PHASE_CORE),
-            def(CONFIG_RBAC_MATRIX, "Cấu hình ma trận phân quyền", "Identity & RBAC", PHASE_CORE),
+            // ── Luồng E2E-1: Vận hành Quầy POS & Đặt lịch ──
+            def(VIEW_BOOKINGS, "Xem danh sách & chi tiết đơn đặt lịch", "Luồng E2E-1: Vận hành Quầy POS & Đặt lịch", PHASE_CORE),
+            def(UPDATE_BOOKING_STATUS, "Cập nhật trạng thái đơn đặt lịch (Xác nhận, Đang rửa, Xong)", "Luồng E2E-1: Vận hành Quầy POS & Đặt lịch", PHASE_CORE),
+            def(CHECKIN_LATE, "Xác nhận Check-in trễ giờ tại quầy", "Luồng E2E-1: Vận hành Quầy POS & Đặt lịch", PHASE_CORE),
+            def(CHECKOUT_BOOKING, "Thanh toán hóa đơn & hoàn tất đơn tại quầy", "Luồng E2E-1: Vận hành Quầy POS & Đặt lịch", PHASE_CORE),
+            def(LOCK_SLOT, "Khóa / Mở khóa thủ công mốc giờ rửa xe", "Luồng E2E-1: Vận hành Quầy POS & Đặt lịch", PHASE_CORE),
 
-            // ── Phase 1: Customer CRM & Loyalty ──
-            def(VIEW_CUSTOMER_PROFILE, "Xem hồ sơ khách hàng & tích điểm", "Customer CRM", PHASE_CORE),
-            def(MANAGE_CUSTOMER_STATUS, "Quản lý khách hàng (Khóa / Mở khóa)", "Customer CRM", PHASE_CORE),
-            def(MANAGE_LOYALTY_CONFIG, "Cấu hình chính sách Tích điểm & Hạng thành viên", "Customer CRM", PHASE_CORE),
+            // ── Luồng E2E-2: Khách hàng CRM ──
+            def(VIEW_CUSTOMERS, "Tra cứu thông tin khách hàng & lịch sử điểm tích lũy", "Luồng E2E-2: Khách hàng CRM", PHASE_CORE),
+            def(MANAGE_CUSTOMER_STATUS, "Khóa / Mở khóa trạng thái hoạt động tài khoản khách hàng", "Luồng E2E-2: Khách hàng CRM", PHASE_CORE),
 
-            // ── Phase 1: Booking Flow 1 & Operations ──
-            def(CREATE_WALK_IN_BOOKING, "Tạo & tiếp nhận đơn trực tiếp tại trạm", "Booking & POS", PHASE_CORE),
-            def(CASHIER_CHECKIN, "Thu tiền tại quầy (Checkout / Hóa đơn)", "Booking & POS", PHASE_CORE),
-            def(CANCEL_BOOKING, "Hủy đặt lịch rửa xe & giải phóng khoang", "Booking & POS", PHASE_CORE),
-            def(VIEW_SLOT_AVAILABILITY, "Xem sơ đồ khung giờ & khoang trống", "Booking & POS", PHASE_CORE),
-            def(VIEW_STATION_QUEUE, "Xem danh sách xe đang rửa tại trạm", "Operations", PHASE_CORE),
-            def(MANAGE_WASH_PROGRESS, "Bắt đầu rửa & xác nhận hoàn thành ca rửa", "Operations", PHASE_CORE),
-            def(MONITOR_REALTIME_QUEUE, "Giám sát màn hình tổng Dashboard realtime", "Operations", PHASE_CORE),
-            def(VIEW_DASHBOARD_STATS, "Xem báo cáo thống kê doanh thu & hoạt động", "Operations", PHASE_CORE),
+            // ── Luồng E2E-3: Khuyến mãi & Direct Gifting ──
+            def(VIEW_PROMOTIONS, "Xem danh sách chiến dịch & KPI khuyến mãi", "Luồng E2E-3: Khuyến mãi & Direct Gifting", PHASE_CORE),
+            def(MANAGE_PROMOTIONS, "Tạo mới, kích hoạt / xóa chiến dịch Voucher", "Luồng E2E-3: Khuyến mãi & Direct Gifting", PHASE_CORE),
+            def(GRANT_PROMOTIONS, "Xem trước tệp đối tượng & Tặng voucher trực tiếp", "Luồng E2E-3: Khuyến mãi & Direct Gifting", PHASE_CORE),
+            def(VIEW_FEEDBACKS, "Xem danh sách đánh giá từ khách hàng", "Luồng E2E-3: Khuyến mãi & Direct Gifting", PHASE_CORE),
+            def(RESOLVE_FEEDBACK, "Xử lý khiếu nại & Phát voucher đền bù", "Luồng E2E-3: Khuyến mãi & Direct Gifting", PHASE_CORE),
 
-            // ── Phase 1: Services, Slots & Station Settings ──
-            def(MANAGE_SERVICE_CATALOG, "Quản lý gói dịch vụ & Bảng giá theo xe", "Service & Pricing", PHASE_CORE),
-            def(MANAGE_SLOT_CONFIG, "Cấu hình khoang rửa & Lịch làm việc", "Service & Pricing", PHASE_CORE),
-            def(MANAGE_STATION_SETTINGS, "Cài đặt thông tin chung của Trạm rửa xe", "System Settings", PHASE_CORE),
+            // ── Luồng E2E-4: Admin Dashboard & Analytics ──
+            def(VIEW_DASHBOARD, "Xem báo cáo KPI, Biểu đồ Doanh thu & Slot", "Luồng E2E-4: Dashboard & Analytics", PHASE_CORE),
 
-            // ── Phase 2: Notifications Flow 2 ──
-            def(SEND_BOOKING_NOTIFICATION, "Gửi thông báo đặt lịch thành công", "Notification (Flow 2)", PHASE_NOTIFICATION, false),
-            def(SEND_INCIDENT_ALERT, "Gửi cảnh báo sự cố bãi", "Notification (Flow 2)", PHASE_NOTIFICATION, false),
-            def(VIEW_NOTIFICATION_LOG, "Xem nhật ký thông báo", "Notification (Flow 2)", PHASE_NOTIFICATION, false)
+            // ── Cấu hình Hệ thống & RBAC Matrix ──
+            def(VIEW_SERVICES, "Xem bảng giá gói rửa & mốc giờ làm việc", "Cấu hình Hệ thống & RBAC", PHASE_CORE),
+            def(MANAGE_SERVICES, "Thêm mới, sửa giá & Bật/Tắt gói dịch vụ", "Cấu hình Hệ thống & RBAC", PHASE_CORE),
+            def(MANAGE_SLOTS, "Quản lý khung giờ, công suất & lịch đóng cửa", "Cấu hình Hệ thống & RBAC", PHASE_CORE),
+            def(VIEW_NOTIFICATIONS, "Xem & đánh dấu đã đọc thông báo trạm", "Cấu hình Hệ thống & RBAC", PHASE_CORE),
+            def(CONFIG_RBAC_MATRIX, "Cấu hình Ma trận phân quyền RBAC hệ thống", "Cấu hình Hệ thống & RBAC", PHASE_CORE)
     );
 
     public static List<Definition> phase1() {

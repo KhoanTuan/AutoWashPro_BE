@@ -1,34 +1,18 @@
 package com.autowashpro.autowashpro_be.config;
 
-
 import com.autowashpro.autowashpro_be.modules.booking.entity.*;
-import com.autowashpro.autowashpro_be.modules.booking.repository.BookingRepository;
-import com.autowashpro.autowashpro_be.modules.booking.repository.BookingItemRepository;
-import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogRepository;
-import com.autowashpro.autowashpro_be.modules.booking.repository.TimeSlotRepository;
+import com.autowashpro.autowashpro_be.modules.booking.repository.*;
 import com.autowashpro.autowashpro_be.modules.notification.entity.*;
 import com.autowashpro.autowashpro_be.modules.notification.repository.NotificationRepository;
 import com.autowashpro.autowashpro_be.modules.marketing.entity.*;
 import com.autowashpro.autowashpro_be.modules.marketing.repository.*;
-import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
-import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerAuthProvider;
-import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
-import com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyTier;
-import com.autowashpro.autowashpro_be.modules.customer.entity.Vehicle;
-import com.autowashpro.autowashpro_be.modules.customer.repository.CustomerRepository;
-import com.autowashpro.autowashpro_be.modules.customer.repository.LoyaltyTierRepository;
-import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
-import com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction;
-import com.autowashpro.autowashpro_be.modules.customer.entity.PointActivityType;
-import com.autowashpro.autowashpro_be.modules.customer.repository.PointTransactionRepository;
+import com.autowashpro.autowashpro_be.modules.customer.entity.*;
+import com.autowashpro.autowashpro_be.modules.customer.repository.*;
 import com.autowashpro.autowashpro_be.modules.identity.PermissionCatalog;
-import com.autowashpro.autowashpro_be.modules.identity.entity.Permission;
-import com.autowashpro.autowashpro_be.modules.identity.entity.Role;
-import com.autowashpro.autowashpro_be.modules.identity.entity.Staff;
-import com.autowashpro.autowashpro_be.modules.identity.entity.StaffStatus;
-import com.autowashpro.autowashpro_be.modules.identity.repository.PermissionRepository;
-import com.autowashpro.autowashpro_be.modules.identity.repository.RoleRepository;
-import com.autowashpro.autowashpro_be.modules.identity.repository.StaffRepository;
+import com.autowashpro.autowashpro_be.modules.identity.entity.*;
+import com.autowashpro.autowashpro_be.modules.identity.repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -55,6 +39,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final VehicleRepository vehicleRepository;
     private final ServiceCatalogRepository serviceCatalogRepository;
     private final TimeSlotRepository timeSlotRepository;
+    private final GarageClosureRepository garageClosureRepository;
     private final BookingRepository bookingRepository;
     private final BookingItemRepository bookingItemRepository;
     private final NotificationRepository notificationRepository;
@@ -65,6 +50,9 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private final PasswordEncoder passwordEncoder;
 
+    @PersistenceContext
+    private final EntityManager entityManager;
+
     private Map<String, Permission> ensurePermissions() {
         Map<String, Permission> map = new LinkedHashMap<>();
         for (PermissionCatalog.Definition def : PermissionCatalog.ALL) {
@@ -73,10 +61,8 @@ public class DatabaseSeeder implements CommandLineRunner {
                             .permissionCode(def.getCode())
                             .build()));
             permission.setDescription(def.getLabel());
-            permission.setModuleGroup(def.getModuleGroup());
-            permission.setPhase(def.getPhase());
-            permission.setEnabled(def.isEnabled());
-            map.put(def.getCode(), permissionRepository.save(permission));
+            permissionRepository.save(permission);
+            map.put(def.getCode(), permission);
         }
         return map;
     }
@@ -100,21 +86,15 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         roles.put("ROLE_ADMIN", ensureRole("ROLE_ADMIN", "System Administrator", adminPerms));
 
-        roles.put("ROLE_MANAGER", ensureRole("ROLE_MANAGER", "Station Manager", pick(permissionMap,
-                PermissionCatalog.READ_STAFF, PermissionCatalog.CREATE_UPDATE_STAFF, PermissionCatalog.ASSIGN_ROLE,
-                PermissionCatalog.VIEW_CUSTOMER_PROFILE, PermissionCatalog.MANAGE_CUSTOMER_STATUS, PermissionCatalog.MANAGE_LOYALTY_CONFIG,
-                PermissionCatalog.CREATE_WALK_IN_BOOKING, PermissionCatalog.CASHIER_CHECKIN, PermissionCatalog.CANCEL_BOOKING,
-                PermissionCatalog.VIEW_SLOT_AVAILABILITY, PermissionCatalog.VIEW_STATION_QUEUE, PermissionCatalog.MANAGE_WASH_PROGRESS,
-                PermissionCatalog.MONITOR_REALTIME_QUEUE, PermissionCatalog.VIEW_DASHBOARD_STATS,
-                PermissionCatalog.MANAGE_SERVICE_CATALOG, PermissionCatalog.MANAGE_SLOT_CONFIG, PermissionCatalog.MANAGE_STATION_SETTINGS,
-                PermissionCatalog.SEND_INCIDENT_ALERT
-        )));
+        roles.put("ROLE_MANAGER", ensureRole("ROLE_MANAGER", "Station Manager", permissionMap.values().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getEnabled()) && !PermissionCatalog.CONFIG_RBAC_MATRIX.equals(p.getPermissionCode()))
+                .toList()));
 
         roles.put("ROLE_CASHIER", ensureRole("ROLE_CASHIER", "Front Desk Cashier", pick(permissionMap,
-                PermissionCatalog.VIEW_CUSTOMER_PROFILE, PermissionCatalog.CREATE_WALK_IN_BOOKING,
-                PermissionCatalog.CASHIER_CHECKIN, PermissionCatalog.CANCEL_BOOKING, PermissionCatalog.VIEW_SLOT_AVAILABILITY,
-                PermissionCatalog.VIEW_STATION_QUEUE, PermissionCatalog.MANAGE_WASH_PROGRESS, PermissionCatalog.MONITOR_REALTIME_QUEUE,
-                PermissionCatalog.SEND_INCIDENT_ALERT
+                PermissionCatalog.VIEW_BOOKINGS, PermissionCatalog.UPDATE_BOOKING_STATUS,
+                PermissionCatalog.CHECKIN_LATE, PermissionCatalog.CHECKOUT_BOOKING,
+                PermissionCatalog.VIEW_DASHBOARD, PermissionCatalog.VIEW_SERVICES, PermissionCatalog.VIEW_CUSTOMERS,
+                PermissionCatalog.VIEW_PROMOTIONS, PermissionCatalog.VIEW_FEEDBACKS, PermissionCatalog.VIEW_NOTIFICATIONS
         )));
 
         return roles;
@@ -132,47 +112,105 @@ public class DatabaseSeeder implements CommandLineRunner {
     );
 
     private void cleanupDatabase() {
-        log.info("Cleaning up existing database tables for fresh seeding...");
-        customerFeedbackRepository.deleteAllInBatch();
-        customerPromotionRepository.deleteAllInBatch();
-        notificationRepository.deleteAllInBatch();
-        pointTransactionRepository.deleteAllInBatch();
-        
-        bookingItemRepository.deleteAllInBatch();
-        bookingRepository.deleteAllInBatch();
-        vehicleRepository.deleteAllInBatch();
-        customerRepository.deleteAllInBatch();
-        
-        staffRepository.deleteAllInBatch();
-        roleRepository.deleteAllInBatch();
-        permissionRepository.deleteAllInBatch();
-        
-        timeSlotRepository.deleteAllInBatch();
-        serviceCatalogRepository.deleteAllInBatch();
-        loyaltyTierRepository.deleteAllInBatch();
-        log.info("Database cleanup completed!");
+        log.info("Cleaning up existing database tables and resetting sequence IDs for fresh demo seeding...");
+        try {
+            entityManager.createNativeQuery(
+                "TRUNCATE TABLE customer_feedbacks, customer_promotions, notifications, point_transaction, " +
+                "booking_item, booking, vehicle, customer, staff_role, role_permission, staff, role, permission, " +
+                "time_slot, service_catalog, loyalty_tier, garage_closure, promotions RESTART IDENTITY CASCADE"
+            ).executeUpdate();
+            log.info("Successfully executed TRUNCATE RESTART IDENTITY CASCADE on all tables!");
+        } catch (Exception e) {
+            log.warn("TRUNCATE RESTART IDENTITY CASCADE failed ({}), falling back to deleteAllInBatch & pg_class sequence reset...", e.getMessage());
+            customerFeedbackRepository.deleteAllInBatch();
+            customerPromotionRepository.deleteAllInBatch();
+            notificationRepository.deleteAllInBatch();
+            pointTransactionRepository.deleteAllInBatch();
+            
+            bookingItemRepository.deleteAllInBatch();
+            bookingRepository.deleteAllInBatch();
+            vehicleRepository.deleteAllInBatch();
+            customerRepository.deleteAllInBatch();
+            
+            staffRepository.deleteAllInBatch();
+            roleRepository.deleteAllInBatch();
+            permissionRepository.deleteAllInBatch();
+
+            garageClosureRepository.deleteAllInBatch();
+            timeSlotRepository.deleteAllInBatch();
+            serviceCatalogRepository.deleteAllInBatch();
+            loyaltyTierRepository.deleteAllInBatch();
+            promotionRepository.deleteAllInBatch();
+        }
+
+        resetSequences();
+        log.info("Database cleanup and sequence reset completed!");
+    }
+
+    private void resetSequences() {
+        try {
+            entityManager.createNativeQuery(
+                "DO $$ " +
+                "DECLARE r RECORD; " +
+                "BEGIN " +
+                "  FOR r IN (" +
+                "    SELECT c.relname AS seq_name " +
+                "    FROM pg_class c " +
+                "    JOIN pg_namespace n ON n.oid = c.relnamespace " +
+                "    WHERE c.relkind = 'S' AND n.nspname = 'public'" +
+                "  ) LOOP " +
+                "    EXECUTE 'ALTER SEQUENCE ' || quote_ident(r.seq_name) || ' RESTART WITH 1'; " +
+                "  END LOOP; " +
+                "END $$;"
+            ).executeUpdate();
+            log.info("Successfully restarted all PostgreSQL pg_class sequences to 1!");
+        } catch (Exception e) {
+            log.warn("Sequence auto-reset warning: {}", e.getMessage());
+        }
     }
 
     @Override
     @Transactional
     public void run(String... args) {
-        cleanupDatabase();
-        seedLoyaltyTiers();
         Map<String, Permission> permissionMap = ensurePermissions();
         Map<String, Role> rolesByName = ensureRoles(permissionMap);
         seedDemoStaff(rolesByName);
         patchExistingStaffDefaults();
+
+        // Check if database is already populated with data
+        long existingCustomers = customerRepository.count();
+        long existingBookings = bookingRepository.count();
+
+        if (existingCustomers > 0 || existingBookings > 0) {
+            log.info("Database already initialized with {} customers and {} bookings. Preserving user data and skipping DB wipe on restart.",
+                    existingCustomers, existingBookings);
+
+            // Auto-migrate any existing legacy IN_PROGRESS records in DB to CONFIRMED
+            List<Booking> legacyInProgress = bookingRepository.findByStatus(BookingStatus.IN_PROGRESS);
+            if (!legacyInProgress.isEmpty()) {
+                log.info("Migrating {} legacy IN_PROGRESS bookings in DB to CONFIRMED...", legacyInProgress.size());
+                for (Booking b : legacyInProgress) {
+                    b.setStatus(BookingStatus.CONFIRMED);
+                }
+                bookingRepository.saveAll(legacyInProgress);
+            }
+            return;
+        }
+
+        log.info("Empty database detected. Seeding initial demo data...");
+        seedLoyaltyTiers();
         seedDemoCustomers();
         seedDemoVehicles();
         seedServiceCatalog();
         seedTimeSlots();
+        seedGarageClosures();
         seedDemoBookings();
         seedPointTransactions();
         seedDemoNotifications();
         seedDemoPromotionsAndFeedbacks();
         log.info("Demo staff ready — admin/Admin@123, manager/Manager@123, cashier/Cashier@123, fired_staff/Staff@123 (Inactive)");
         log.info("Demo customers ready — password Customer@123");
-        log.info("Demo service catalog, time slots, bookings, point transactions, notifications, promotions & feedbacks seeded successfully!");
+        log.info("Initial demo data seeded successfully!");
     }
 
     private Role ensureRole(String roleName, String description, Collection<Permission> permissions) {
@@ -274,11 +312,11 @@ public class DatabaseSeeder implements CommandLineRunner {
                 new DemoCustomerSeed("cuongle", "Le Minh Cuong", "0902000003", "cuong.le@email.com", "GOLD", CustomerStatus.ACTIVE, 45, 9800000, 4800, 2),
                 new DemoCustomerSeed("dungpham", "Pham Thi Dung", "0902000004", "dung.pham@email.com", "PLATINUM", CustomerStatus.ACTIVE, 62, 15200000, 9200, 1),
                 new DemoCustomerSeed("emhoang", "Hoang Van Em", "0902000005", "em.hoang@email.com", "MEMBER", CustomerStatus.ACTIVE, 5, 650000, 120, 15),
-                new DemoCustomerSeed("phuongvo", "Vo Thi Phuong", "0902000006", "phuong.vo@email.com", "SILVER", CustomerStatus.INACTIVE, 18, 3100000, 900, 25),
+                new DemoCustomerSeed("phuongvo", "Vo Thi Phuong", "0902000006", "phuong.vo@email.com", "SILVER", CustomerStatus.INACTIVE, 18, 3100000, 900, 400), // Vắng > 12 tháng -> Khoá tài khoản (E2E-4)
                 new DemoCustomerSeed("giangdang", "Dang Quoc Giang", "0902000007", "giang.dang@email.com", "MEMBER", CustomerStatus.ACTIVE, 2, 180000, 40, 45),
                 new DemoCustomerSeed("hoabui", "Bui Thi Hoa", "0902000008", "hoa.bui@email.com", "GOLD", CustomerStatus.ACTIVE, 35, 7200000, 3500, 8),
-                new DemoCustomerSeed("khanhnguyen", "Nguyen Van Khanh", "0902000009", "khanh.nguyen@email.com", "PLATINUM", CustomerStatus.ACTIVE, 50, 12000000, 6000, 35),
-                new DemoCustomerSeed("lamtran", "Tran Van Lam", "0902000010", "lam.tran@email.com", "MEMBER", CustomerStatus.ACTIVE, 8, 1100000, 300, 50),
+                new DemoCustomerSeed("khanhnguyen", "Nguyen Van Khanh", "0902000009", "khanh.nguyen@email.com", "PLATINUM", CustomerStatus.ACTIVE, 50, 12000000, 6000, 35), // Vắng > 30 ngày -> Nhận Direct Gifting Win-back (E2E-3)
+                new DemoCustomerSeed("lamtran", "Tran Van Lam", "0902000010", "lam.tran@email.com", "MEMBER", CustomerStatus.ACTIVE, 8, 1100000, 300, 190), // Vắng > 6 tháng -> Hạ hạng VIP (E2E-4)
                 new DemoCustomerSeed("maile", "Le Thi Mai", "0902000011", "mai.le@email.com", "SILVER", CustomerStatus.ACTIVE, 20, 4200000, 1800, 12),
                 new DemoCustomerSeed("nampham", "Pham Hoang Nam", "0902000012", "nam.pham@email.com", "GOLD", CustomerStatus.ACTIVE, 40, 8500000, 4200, 60),
                 new DemoCustomerSeed("oanhtran", "Tran Thi Oanh", "0902000013", "oanh.tran@email.com", "MEMBER", CustomerStatus.ACTIVE, 1, 50000, 10, 95),
@@ -406,17 +444,25 @@ public class DatabaseSeeder implements CommandLineRunner {
         timeSlotRepository.saveAll(slots);
     }
 
+    private void seedGarageClosures() {
+        if (garageClosureRepository.count() > 0) return;
+        LocalDate today = LocalDate.now();
+        garageClosureRepository.saveAll(List.of(
+                GarageClosure.builder()
+                        .closureDate(today.plusDays(10))
+                        .reason("Nghỉ lễ Quốc Khánh 02/09 - Trạm tạm đóng cửa nghỉ lễ")
+                        .isFullDay(true)
+                        .build(),
+                GarageClosure.builder()
+                        .closureDate(today.plusDays(25))
+                        .reason("Bảo trì định kỳ hệ thống bọt tuyết & sấy nano")
+                        .isFullDay(true)
+                        .build()
+        ));
+        log.info("Seeded demo garage closures successfully!");
+    }
 
     private void seedDemoBookings() {
-        if (bookingRepository.count() > 0) {
-            LocalDate today = LocalDate.now();
-            bookingRepository.findByBookingCode("NV-1001").ifPresent(b -> { if (!today.equals(b.getBookingDate())) { b.setBookingDate(today); bookingRepository.save(b); } });
-            bookingRepository.findByBookingCode("NV-1002").ifPresent(b -> { if (!today.equals(b.getBookingDate()) || b.getStatus() != BookingStatus.COMPLETED) { b.setBookingDate(today); b.setStatus(BookingStatus.COMPLETED); b.setPaymentStatus(PaymentStatus.PAID); bookingRepository.save(b); } });
-            bookingRepository.findByBookingCode("NV-1003").ifPresent(b -> { if (!today.equals(b.getBookingDate())) { b.setBookingDate(today); bookingRepository.save(b); } });
-            bookingRepository.findByBookingCode("NV-1004").ifPresent(b -> { if (!today.plusDays(1).equals(b.getBookingDate())) { b.setBookingDate(today.plusDays(1)); bookingRepository.save(b); } });
-            return;
-        }
-
         List<ServiceCatalog> allServices = serviceCatalogRepository.findAll();
         List<TimeSlot> allSlots = timeSlotRepository.findAll();
         if (allServices.isEmpty() || allSlots.isEmpty()) return;
@@ -440,7 +486,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         List<BookingSeedInfo> bookingSeeds = List.of(
             new BookingSeedInfo("NV-1001", "0902000001", "51A-12345", "Honda SH 150i", today, slot8_9, BookingStatus.PENDING, PaymentStatus.UNPAID, List.of(pkgStd, addHelmet), "Khách dặn rửa kỹ lốp xe"),
             new BookingSeedInfo("NV-1002", "0902000002", "51B-67890", "Yamaha Exciter 150", today, slot9_10, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgDeluxe), "Khách hẹn đến đúng giờ"),
-            new BookingSeedInfo("NV-1003", "0902000003", "30C-11223", "Vespa GTS 300", today, slot10_11, BookingStatus.IN_PROGRESS, PaymentStatus.PAID, List.of(pkgUltimate), "Đang rửa chi tiết"),
+            new BookingSeedInfo("NV-1003", "0902000003", "30C-11223", "Vespa GTS 300", today, slot10_11, BookingStatus.CONFIRMED, PaymentStatus.UNPAID, List.of(pkgUltimate), "Đã xác nhận hẹn rửa"),
             new BookingSeedInfo("NV-1004", "0902000004", "43D-44556", "Honda Air Blade", tomorrow, slot14_15, BookingStatus.CANCELLED_BY_CUSTOMER, PaymentStatus.UNPAID, List.of(pkgDeluxe), "Khách bận đột xuất nên hủy"),
             new BookingSeedInfo("NV-1005", "0902000002", "51B-67890", "Yamaha Exciter 150", today.minusDays(3), slot9_10, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgDeluxe, addChain), "Khách quen trạm"),
             new BookingSeedInfo("NV-1006", "0902000003", "30C-11223", "Vespa GTS 300", today.minusDays(5), slot10_11, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgUltimate), "Khách đánh giá gầm dơ"),
@@ -452,7 +498,8 @@ public class DatabaseSeeder implements CommandLineRunner {
             new BookingSeedInfo("NV-1012", "0902000012", "86S-33333", "Honda PCX 160", today.minusDays(4), slot10_11, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgUltimate, addChain), "Sạch đẹp"),
             new BookingSeedInfo("NV-1013", "0902000013", "36Q-55555", "Honda Wave Alpha", today, slot15_16, BookingStatus.CONFIRMED, PaymentStatus.UNPAID, List.of(pkgStd), "Đợi rửa"),
             new BookingSeedInfo("NV-1014", "0902000014", "75R-44444", "Yamaha Grande", tomorrow, slot8_9, BookingStatus.PENDING, PaymentStatus.UNPAID, List.of(pkgDeluxe), "Đã cọc"),
-            new BookingSeedInfo("NV-1015", "0902000015", "86S-33333", "Honda PCX 160", today.minusDays(18), slot14_15, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgUltimate), "Tốt")
+            new BookingSeedInfo("NV-1015", "0902000015", "86S-33333", "Honda PCX 160", today.minusDays(18), slot14_15, BookingStatus.COMPLETED, PaymentStatus.PAID, List.of(pkgUltimate), "Tốt"),
+            new BookingSeedInfo("NV-1018", "0902000007", "92G-22334", "Honda SH Mode", today.minusDays(2), slot8_9, BookingStatus.CANCELLED_NO_SHOW, PaymentStatus.UNPAID, List.of(pkgStd), "Trễ giờ không đến check-in")
         );
 
         for (BookingSeedInfo seed : bookingSeeds) {
@@ -497,8 +544,6 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private void seedDemoNotifications() {
-        if (notificationRepository.count() > 0) return;
-
         List<Notification> notifications = new ArrayList<>();
 
         // Customer 0902000001 (Tran Van An)
@@ -549,7 +594,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         notifications.add(Notification.builder()
                 .recipientType(NotificationRecipientType.ALL_STAFF)
                 .title("🎉 Đơn đặt lịch mới!")
-                .content("Khách Trần Văn An đặt khung 08:00 - 09:00 ngày hôm nay (Biển số: 29A-12345)")
+                .content("Khách Nguyễn Văn An đặt khung 08:00 - 09:00 ngày hôm nay (Biển số: 51A-12345)")
                 .type(NotificationType.NEW_BOOKING)
                 .referenceCode("NV-1001")
                 .isRead(false)
@@ -557,7 +602,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         notifications.add(Notification.builder()
                 .recipientType(NotificationRecipientType.ALL_STAFF)
                 .title("🎉 Đơn đặt lịch mới!")
-                .content("Khách Lê Thị Mai đặt khung 09:00 - 10:00 ngày hôm nay (Biển số: 51B-67890)")
+                .content("Khách Trần Thị Bình đặt khung 09:00 - 10:00 ngày hôm nay (Biển số: 51B-67890)")
                 .type(NotificationType.NEW_BOOKING)
                 .referenceCode("NV-1002")
                 .isRead(false)
@@ -565,7 +610,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         notifications.add(Notification.builder()
                 .recipientType(NotificationRecipientType.ALL_STAFF)
                 .title("⚠️ Khách hàng hủy lịch hẹn!")
-                .content("Khách Nguyễn Hoàng Yến đã hủy lịch hẹn NV-1004 cho khung giờ 14:00 - 15:00 ngày mai.")
+                .content("Khách Phạm Thị Dũng đã hủy lịch hẹn NV-1004 cho khung giờ 14:00 - 15:00 ngày mai.")
                 .type(NotificationType.BOOKING_CANCELLED)
                 .referenceCode("NV-1004")
                 .isRead(true)
@@ -575,181 +620,177 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private void seedDemoPromotionsAndFeedbacks() {
-        if (promotionRepository.count() == 0) {
-            log.info("Seeding demo promotions for E2E-3...");
-            List<Promotion> promotions = List.of(
-                    Promotion.builder()
-                            .code("WELCOME50")
-                            .name("Quà chào mừng thành viên mới")
-                            .description("Giảm 10% cho đơn rửa xe đầu tiên")
-                            .discountType(DiscountType.PERCENTAGE)
-                            .value(BigDecimal.valueOf(10))
-                            .costPoints(0)
-                            .minTier("Member")
-                            .minRecencyDays(0)
-                            .totalBudget(1000)
-                            .issuedCount(15)
-                            .redeemedCount(8)
-                            .startDate(LocalDateTime.now().minusDays(10))
-                            .endDate(LocalDateTime.now().plusMonths(3))
-                            .status(PromotionStatus.ACTIVE)
-                            .build(),
-                    Promotion.builder()
-                            .code("SUMMER24")
-                            .name("Voucher Mùa Hè Rực Rỡ")
-                            .description("Giảm giá 50.000đ cho tất cả dịch vụ rửa xe và chăm sóc chi tiết")
-                            .discountType(DiscountType.FIXED_AMOUNT)
-                            .value(BigDecimal.valueOf(50000))
-                            .costPoints(0)
-                            .minTier("Gold")
-                            .minRecencyDays(0)
-                            .totalBudget(500)
-                            .issuedCount(120)
-                            .redeemedCount(85)
-                            .startDate(LocalDateTime.now().minusDays(5))
-                            .endDate(LocalDateTime.now().plusMonths(1))
-                            .status(PromotionStatus.ACTIVE)
-                            .build(),
-                    Promotion.builder()
-                            .code("FREEWASH")
-                            .name("Tri ân khách hàng Kim Cương")
-                            .description("Rửa xe toàn diện miễn phí 100% dành cho thành viên Platinum")
-                            .discountType(DiscountType.FREE_SERVICE)
-                            .value(BigDecimal.valueOf(100000))
-                            .costPoints(0)
-                            .minTier("Platinum")
-                            .minRecencyDays(0)
-                            .totalBudget(100)
-                            .issuedCount(25)
-                            .redeemedCount(20)
-                            .startDate(LocalDateTime.now().minusDays(15))
-                            .endDate(LocalDateTime.now().plusMonths(2))
-                            .status(PromotionStatus.ACTIVE)
-                            .build(),
-                    Promotion.builder()
-                            .code("VOUCHER_50K")
-                            .name("Voucher Giảm Giá 50k đổi điểm")
-                            .description("Áp dụng giảm trực tiếp cho mọi hóa đơn đặt lịch rửa xe hoặc dịch vụ phụ trợ.")
-                            .discountType(DiscountType.FIXED_AMOUNT)
-                            .value(BigDecimal.valueOf(50000))
-                            .costPoints(450)
-                            .minTier("Member")
-                            .minRecencyDays(0)
-                            .totalBudget(2000)
-                            .issuedCount(310)
-                            .redeemedCount(190)
-                            .startDate(LocalDateTime.now().minusDays(30))
-                            .endDate(LocalDateTime.now().plusMonths(6))
-                            .status(PromotionStatus.ACTIVE)
-                            .build(),
-                    Promotion.builder()
-                            .code("VOUCHER_FREE")
-                            .name("Voucher Rửa Xe Miễn Phí (Đổi Điểm)")
-                            .description("Đổi 1 lượt sử dụng gói rửa xe toàn diện hoàn toàn miễn phí.")
-                            .discountType(DiscountType.FREE_SERVICE)
-                            .value(BigDecimal.valueOf(100000))
-                            .costPoints(1000)
-                            .minTier("Member")
-                            .minRecencyDays(0)
-                            .totalBudget(500)
-                            .issuedCount(80)
-                            .redeemedCount(45)
-                            .startDate(LocalDateTime.now().minusDays(20))
-                            .endDate(LocalDateTime.now().plusMonths(6))
-                            .status(PromotionStatus.ACTIVE)
-                            .build(),
-                    Promotion.builder()
-                            .code("PAUSED_CAMPAIGN")
-                            .name("Chiến dịch tạm ngưng chạy thử")
-                            .description("Chiến dịch giảm giá 20k đang tạm ngưng.")
-                            .discountType(DiscountType.FIXED_AMOUNT)
-                            .value(BigDecimal.valueOf(20000))
-                            .costPoints(0)
-                            .minTier("Member")
-                            .minRecencyDays(0)
-                            .totalBudget(200)
-                            .issuedCount(10)
-                            .redeemedCount(2)
-                            .startDate(LocalDateTime.now().minusDays(5))
-                            .endDate(LocalDateTime.now().plusMonths(1))
-                            .status(PromotionStatus.PAUSED)
-                            .build(),
-                    Promotion.builder()
-                            .code("EXPIRED_CAMPAIGN")
-                            .name("Khuyến mãi hết hạn từ lâu")
-                            .description("Khuyến mãi giảm 15% mùa đông trước.")
-                            .discountType(DiscountType.PERCENTAGE)
-                            .value(BigDecimal.valueOf(15))
-                            .costPoints(0)
-                            .minTier("Member")
-                            .minRecencyDays(0)
-                            .totalBudget(100)
-                            .issuedCount(50)
-                            .redeemedCount(48)
-                            .startDate(LocalDateTime.now().minusMonths(6))
-                            .endDate(LocalDateTime.now().minusMonths(3))
-                            .status(PromotionStatus.EXPIRED)
-                            .build(),
-                    Promotion.builder()
-                            .code("COMPENSATE50")
-                            .name("Voucher Đền Bù Tạ Lỗi CSKH")
-                            .description("Voucher đền bù trải nghiệm dịch vụ chưa hài lòng.")
-                            .discountType(DiscountType.FIXED_AMOUNT)
-                            .value(BigDecimal.valueOf(50000))
-                            .costPoints(0)
-                            .minTier("Member")
-                            .minRecencyDays(0)
-                            .totalBudget(1000)
-                            .issuedCount(5)
-                            .redeemedCount(2)
-                            .startDate(LocalDateTime.now().minusDays(10))
-                            .endDate(LocalDateTime.now().plusMonths(3))
-                            .status(PromotionStatus.ACTIVE)
-                            .build(),
-                    Promotion.builder()
-                            .code("WINTER_COMBO")
-                            .name("Voucher Combo Mùa Đông")
-                            .description("Giảm giá 20% cho thành viên từ Silver trở lên.")
-                            .discountType(DiscountType.PERCENTAGE)
-                            .value(BigDecimal.valueOf(20))
-                            .costPoints(500)
-                            .minTier("Silver")
-                            .minRecencyDays(0)
-                            .totalBudget(300)
-                            .issuedCount(12)
-                            .redeemedCount(3)
-                            .startDate(LocalDateTime.now().minusDays(2))
-                            .endDate(LocalDateTime.now().plusMonths(2))
-                            .status(PromotionStatus.ACTIVE)
-                            .build(),
-                    Promotion.builder()
-                            .code("VIP_SPECIAL")
-                            .name("Quà tặng VIP vắng mặt lâu ngày")
-                            .description("Ưu đãi đặc biệt giảm 100k cho khách Platinum không đến trên 30 ngày.")
-                            .discountType(DiscountType.FIXED_AMOUNT)
-                            .value(BigDecimal.valueOf(100000))
-                            .costPoints(0)
-                            .minTier("Platinum")
-                            .minRecencyDays(30)
-                            .totalBudget(100)
-                            .issuedCount(1)
-                            .redeemedCount(0)
-                            .startDate(LocalDateTime.now().minusDays(3))
-                            .endDate(LocalDateTime.now().plusMonths(1))
-                            .status(PromotionStatus.ACTIVE)
-                            .build()
-            );
-            promotionRepository.saveAll(promotions);
+        log.info("Seeding demo promotions for E2E-3...");
+        List<Promotion> promotions = List.of(
+                Promotion.builder()
+                        .code("WELCOME50")
+                        .name("Quà chào mừng thành viên mới")
+                        .description("Giảm 10% cho đơn rửa xe đầu tiên")
+                        .discountType(DiscountType.PERCENTAGE)
+                        .value(BigDecimal.valueOf(10))
+                        .costPoints(0)
+                        .minTier("Member")
+                        .minRecencyDays(0)
+                        .totalBudget(1000)
+                        .issuedCount(15)
+                        .redeemedCount(8)
+                        .startDate(LocalDateTime.now().minusDays(10))
+                        .endDate(LocalDateTime.now().plusMonths(3))
+                        .status(PromotionStatus.ACTIVE)
+                        .build(),
+                Promotion.builder()
+                        .code("SUMMER24")
+                        .name("Voucher Mùa Hè Rực Rỡ")
+                        .description("Giảm giá 50.000đ cho tất cả dịch vụ rửa xe và chăm sóc chi tiết")
+                        .discountType(DiscountType.FIXED_AMOUNT)
+                        .value(BigDecimal.valueOf(50000))
+                        .costPoints(0)
+                        .minTier("Gold")
+                        .minRecencyDays(0)
+                        .totalBudget(500)
+                        .issuedCount(120)
+                        .redeemedCount(85)
+                        .startDate(LocalDateTime.now().minusDays(5))
+                        .endDate(LocalDateTime.now().plusMonths(1))
+                        .status(PromotionStatus.ACTIVE)
+                        .build(),
+                Promotion.builder()
+                        .code("FREEWASH")
+                        .name("Tri ân khách hàng Kim Cương")
+                        .description("Rửa xe toàn diện miễn phí 100% dành cho thành viên Platinum")
+                        .discountType(DiscountType.FREE_SERVICE)
+                        .value(BigDecimal.valueOf(100000))
+                        .costPoints(0)
+                        .minTier("Platinum")
+                        .minRecencyDays(0)
+                        .totalBudget(100)
+                        .issuedCount(25)
+                        .redeemedCount(20)
+                        .startDate(LocalDateTime.now().minusDays(15))
+                        .endDate(LocalDateTime.now().plusMonths(2))
+                        .status(PromotionStatus.ACTIVE)
+                        .build(),
+                Promotion.builder()
+                        .code("VOUCHER_50K")
+                        .name("Voucher Giảm Giá 50k đổi điểm")
+                        .description("Áp dụng giảm trực tiếp cho mọi hóa đơn đặt lịch rửa xe hoặc dịch vụ phụ trợ.")
+                        .discountType(DiscountType.FIXED_AMOUNT)
+                        .value(BigDecimal.valueOf(50000))
+                        .costPoints(450)
+                        .minTier("Member")
+                        .minRecencyDays(0)
+                        .totalBudget(2000)
+                        .issuedCount(310)
+                        .redeemedCount(190)
+                        .startDate(LocalDateTime.now().minusDays(30))
+                        .endDate(LocalDateTime.now().plusMonths(6))
+                        .status(PromotionStatus.ACTIVE)
+                        .build(),
+                Promotion.builder()
+                        .code("VOUCHER_FREE")
+                        .name("Voucher Rửa Xe Miễn Phí (Đổi Điểm)")
+                        .description("Đổi 1 lượt sử dụng gói rửa xe toàn diện hoàn toàn miễn phí.")
+                        .discountType(DiscountType.FREE_SERVICE)
+                        .value(BigDecimal.valueOf(100000))
+                        .costPoints(1000)
+                        .minTier("Member")
+                        .minRecencyDays(0)
+                        .totalBudget(500)
+                        .issuedCount(80)
+                        .redeemedCount(45)
+                        .startDate(LocalDateTime.now().minusDays(20))
+                        .endDate(LocalDateTime.now().plusMonths(6))
+                        .status(PromotionStatus.ACTIVE)
+                        .build(),
+                Promotion.builder()
+                        .code("PAUSED_CAMPAIGN")
+                        .name("Chiến dịch tạm ngưng chạy thử")
+                        .description("Chiến dịch giảm giá 20k đang tạm ngưng.")
+                        .discountType(DiscountType.FIXED_AMOUNT)
+                        .value(BigDecimal.valueOf(20000))
+                        .costPoints(0)
+                        .minTier("Member")
+                        .minRecencyDays(0)
+                        .totalBudget(200)
+                        .issuedCount(10)
+                        .redeemedCount(2)
+                        .startDate(LocalDateTime.now().minusDays(5))
+                        .endDate(LocalDateTime.now().plusMonths(1))
+                        .status(PromotionStatus.PAUSED)
+                        .build(),
+                Promotion.builder()
+                        .code("EXPIRED_CAMPAIGN")
+                        .name("Khuyến mãi hết hạn từ lâu")
+                        .description("Khuyến mãi giảm 15% mùa đông trước.")
+                        .discountType(DiscountType.PERCENTAGE)
+                        .value(BigDecimal.valueOf(15))
+                        .costPoints(0)
+                        .minTier("Member")
+                        .minRecencyDays(0)
+                        .totalBudget(100)
+                        .issuedCount(50)
+                        .redeemedCount(48)
+                        .startDate(LocalDateTime.now().minusMonths(6))
+                        .endDate(LocalDateTime.now().minusMonths(3))
+                        .status(PromotionStatus.EXPIRED)
+                        .build(),
+                Promotion.builder()
+                        .code("COMPENSATE50")
+                        .name("Voucher Đền Bù Tạ Lỗi CSKH")
+                        .description("Voucher đền bù trải nghiệm dịch vụ chưa hài lòng.")
+                        .discountType(DiscountType.FIXED_AMOUNT)
+                        .value(BigDecimal.valueOf(50000))
+                        .costPoints(0)
+                        .minTier("Member")
+                        .minRecencyDays(0)
+                        .totalBudget(1000)
+                        .issuedCount(5)
+                        .redeemedCount(2)
+                        .startDate(LocalDateTime.now().minusDays(10))
+                        .endDate(LocalDateTime.now().plusMonths(3))
+                        .status(PromotionStatus.ACTIVE)
+                        .build(),
+                Promotion.builder()
+                        .code("WINTER_COMBO")
+                        .name("Voucher Combo Mùa Đông")
+                        .description("Giảm giá 20% cho thành viên từ Silver trở lên.")
+                        .discountType(DiscountType.PERCENTAGE)
+                        .value(BigDecimal.valueOf(20))
+                        .costPoints(500)
+                        .minTier("Silver")
+                        .minRecencyDays(0)
+                        .totalBudget(300)
+                        .issuedCount(12)
+                        .redeemedCount(3)
+                        .startDate(LocalDateTime.now().minusDays(2))
+                        .endDate(LocalDateTime.now().plusMonths(2))
+                        .status(PromotionStatus.ACTIVE)
+                        .build(),
+                Promotion.builder()
+                        .code("VIP_SPECIAL")
+                        .name("Quà tặng VIP vắng mặt lâu ngày")
+                        .description("Ưu đãi đặc biệt giảm 100k cho khách Platinum không đến trên 30 ngày.")
+                        .discountType(DiscountType.FIXED_AMOUNT)
+                        .value(BigDecimal.valueOf(100000))
+                        .costPoints(0)
+                        .minTier("Platinum")
+                        .minRecencyDays(30)
+                        .totalBudget(100)
+                        .issuedCount(1)
+                        .redeemedCount(0)
+                        .startDate(LocalDateTime.now().minusDays(3))
+                        .endDate(LocalDateTime.now().plusMonths(1))
+                        .status(PromotionStatus.ACTIVE)
+                        .build()
+        );
+        promotionRepository.saveAll(promotions);
 
-            // Seed Wallets for Customers
-            seedCustomerWallets();
-        }
+        // Seed Wallets for Customers
+        seedCustomerWallets();
 
-        if (customerFeedbackRepository.count() == 0) {
-            log.info("Seeding demo customer feedbacks for E2E-3...");
-            seedCustomerFeedbacks();
-            log.info("Seeded demo customer feedbacks successfully!");
-        }
+        log.info("Seeding demo customer feedbacks for E2E-3 CSKH test cases...");
+        seedCustomerFeedbacks();
+        log.info("Seeded demo customer feedbacks successfully!");
     }
 
     private void seedCustomerWallets() {
@@ -851,7 +892,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .resolutionNotes("AI Sentiment: Tích cực. Ghi nhận đánh giá tốt.").build());
         });
 
-        // Customer 2: Tran Thi Binh
+        // Customer 2: Tran Thi Binh (Unresolved 2-star feedback for E2E-3 CSKH test)
         customerRepository.findByPhoneNumber("0902000002").ifPresent(c -> {
             customerFeedbackRepository.save(CustomerFeedback.builder()
                     .customer(c).bookingId("NV-1005").serviceName("Gói Rửa xe máy cao cấp + Tẩy xích")
@@ -859,7 +900,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .createdAt(LocalDateTime.now().minusDays(2)).status(FeedbackStatus.NEW).build());
         });
 
-        // Customer 3: Le Minh Cuong
+        // Customer 3: Le Minh Cuong (Unresolved 1-star feedback for E2E-3 CSKH test)
         customerRepository.findByPhoneNumber("0902000003").ifPresent(c -> {
             customerFeedbackRepository.save(CustomerFeedback.builder()
                     .customer(c).bookingId("NV-1006").serviceName("Gói Rửa xe máy siêu cấp")
@@ -876,11 +917,11 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .resolutionNotes("AI Sentiment: Tích cực. Khách hàng thân thiết Platinum.").build());
         });
 
-        // Customer 5: Hoang Van Em
+        // Customer 5: Hoang Van Em (Unresolved 2-star feedback for E2E-3 CSKH test)
         customerRepository.findByPhoneNumber("0902000005").ifPresent(c -> {
             customerFeedbackRepository.save(CustomerFeedback.builder()
                     .customer(c).bookingId("NV-1008").serviceName("Gói Rửa xe máy tiêu chuẩn")
-                    .ratingStars(3).comment("Rửa tạm ổn nhưng phòng chờ hôm nay nóng quá, máy lọc nước thì hết nước.")
+                    .ratingStars(2).comment("Dịch vụ rửa chưa kỹ, nước rửa còn đọng ở kẽ dàn áo xe và đĩa thắng.")
                     .createdAt(LocalDateTime.now().minusDays(15)).status(FeedbackStatus.NEW).build());
         });
 
@@ -902,7 +943,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .resolutionNotes("Đánh giá tốt từ khách hạng Gold.").build());
         });
 
-        // Customer 11: Le Thi Mai
+        // Customer 11: Le Thi Mai (Unresolved 1-star feedback for E2E-3 CSKH test)
         customerRepository.findByPhoneNumber("0902000011").ifPresent(c -> {
             customerFeedbackRepository.save(CustomerFeedback.builder()
                     .customer(c).bookingId("NV-1011").serviceName("Gói Rửa xe máy cao cấp")
@@ -1019,7 +1060,6 @@ public class DatabaseSeeder implements CommandLineRunner {
         tx.setUpdatedAt(date);
         pointTransactionRepository.save(tx);
     }
-
 
     private record DemoVehicleSeed(
             String phone,

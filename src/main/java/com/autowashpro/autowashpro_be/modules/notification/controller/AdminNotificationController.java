@@ -20,7 +20,7 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/notifications")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
-@PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
+@PreAuthorize("hasAuthority('VIEW_NOTIFICATIONS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
 @Tag(name = "Admin Notification & Bell Icon", description = "Quản lý thông báo thời gian thực & chuông báo trên máy POS cho Staff/Manager")
 public class AdminNotificationController {
 

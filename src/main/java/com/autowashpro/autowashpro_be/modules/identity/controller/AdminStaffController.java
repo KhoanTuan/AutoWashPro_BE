@@ -17,9 +17,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import static com.autowashpro.autowashpro_be.config.OpenApiConfig.TAG_03_ADMIN_STAFF;
-import static com.autowashpro.autowashpro_be.modules.identity.PermissionCatalog.CREATE_UPDATE_STAFF;
-import static com.autowashpro.autowashpro_be.modules.identity.PermissionCatalog.DELETE_STAFF;
-import static com.autowashpro.autowashpro_be.modules.identity.PermissionCatalog.READ_STAFF;
 
 /**
  * Tầng presentation — chỉ nhận HTTP request, validate (@Valid), phân quyền (@PreAuthorize),
@@ -44,14 +41,14 @@ public class AdminStaffController {
     private final StaffService staffService;
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAuthority('" + READ_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(operationId = "03-01-stats", summary = "[READ] Thống kê Staff & Performance")
     public ResponseEntity<StaffSummaryStatsResponse> stats() {
         return ResponseEntity.ok(staffService.getSummaryStats());
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('" + READ_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
             operationId = "03-02-list",
             summary = "[READ] Danh sách nhân viên (phân trang)",
@@ -68,7 +65,7 @@ public class AdminStaffController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + READ_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(operationId = "03-03-detail", summary = "[READ] Chi tiết nhân viên")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK"),
@@ -79,12 +76,12 @@ public class AdminStaffController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
             operationId = "03-04-create",
             summary = "[CREATE] Tạo tài khoản nhân viên",
             description = """
-                    Cần `CREATE_UPDATE_STAFF`. Admin hoặc Manager tạo tài khoản.
+                    Admin hoặc Manager tạo tài khoản.
                     Nhân viên ở `PENDING_ACTIVATION` cho đến khi xác thực email.
                     Manager không được gán `ROLE_ADMIN` / `ROLE_MANAGER`.
                     """
@@ -94,7 +91,7 @@ public class AdminStaffController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(operationId = "03-05-update", summary = "[UPDATE] Cập nhật thông tin nhân viên")
     public ResponseEntity<StaffResponse> update(
             @PathVariable Long id,
@@ -104,7 +101,7 @@ public class AdminStaffController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(operationId = "03-06-update-account-status", summary = "[UPDATE] Khóa / mở khóa tài khoản (ACTIVE ↔ INACTIVE)")
     public ResponseEntity<StaffResponse> updateStatus(
             @PathVariable Long id,
@@ -114,11 +111,11 @@ public class AdminStaffController {
     }
 
     @PutMapping("/{staffId}/roles")
-    @PreAuthorize("hasAuthority('ASSIGN_ROLE')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
             operationId = "03-08-assign-roles",
             summary = "[UPDATE] Gán vai trò cho nhân viên",
-            description = "Cần `ASSIGN_ROLE`. Ghi đè toàn bộ `roleIds`."
+            description = "Ghi đè toàn bộ `roleIds`."
     )
     public ResponseEntity<StaffResponse> assignRoles(
             @PathVariable Long staffId,
@@ -128,18 +125,18 @@ public class AdminStaffController {
     }
 
     @PostMapping("/{id}/reset-password")
-    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
             operationId = "03-09-reset-password",
             summary = "[ACTION] Reset mật khẩu nhân viên",
-            description = "Cần `CREATE_UPDATE_STAFF`. Reset về `AutoWash@2026`, bật `requirePasswordChange`."
+            description = "Reset về `AutoWash@2026`, bật `requirePasswordChange`."
     )
     public ResponseEntity<CreateStaffResponse> resetPassword(@PathVariable Long id) {
         return ResponseEntity.ok(staffService.resetPassword(id));
     }
 
     @PostMapping("/{id}/resend-activation")
-    @PreAuthorize("hasAuthority('" + CREATE_UPDATE_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
             operationId = "03-10-resend-activation",
             summary = "[ACTION] Gửi lại email kích hoạt tài khoản",
@@ -150,11 +147,11 @@ public class AdminStaffController {
     }
 
     @GetMapping("/audit-logs")
-    @PreAuthorize("hasAuthority('" + DELETE_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
             operationId = "03-11-audit-logs",
             summary = "[READ] Audit log thao tác nhân sự",
-            description = "Cần `DELETE_STAFF` (Admin). Ghi nhận soft/hard delete, restore, resend activation."
+            description = "Ghi nhận soft/hard delete, restore, resend activation."
     )
     public ResponseEntity<PageResponse<AdminAuditLogResponse>> auditLogs(
             @RequestParam(defaultValue = "0") int page,
@@ -164,12 +161,11 @@ public class AdminStaffController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + DELETE_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
             operationId = "03-12-delete",
             summary = "[DELETE] Xóa nhân viên (soft/hard)",
             description = """
-                    Cần `DELETE_STAFF` — chỉ Admin.
                     - Mặc định soft delete: gắn `deletedAt`, khóa tài khoản, giải phóng username/email.
                     - `hardDelete=true`: xóa vĩnh viễn khỏi DB (chặn nếu còn booking/task hoặc BUSY).
                     - Không xóa chính mình hoặc admin cuối cùng.
@@ -183,11 +179,11 @@ public class AdminStaffController {
     }
 
     @PostMapping("/{id}/restore")
-    @PreAuthorize("hasAuthority('" + DELETE_STAFF + "')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
             operationId = "03-13-restore",
             summary = "[ACTION] Khôi phục nhân viên đã soft delete",
-            description = "Cần `DELETE_STAFF`. Khôi phục username/email gốc, đặt `INACTIVE` — Admin bật lại ACTIVE thủ công."
+            description = "Khôi phục username/email gốc, đặt `INACTIVE` — Admin bật lại ACTIVE thủ công."
     )
     public ResponseEntity<StaffResponse> restoreStaff(@PathVariable Long id) {
         return ResponseEntity.ok(staffService.restoreStaff(id));

@@ -24,7 +24,7 @@ public class AdminBookingController {
 
     @Operation(summary = "Tìm kiếm đặt lịch", description = "Tìm kiếm đơn chéo ngày theo query (mã đơn, SĐT, biển số) hoặc lấy danh sách theo ngày nếu query trống")
     @GetMapping("/bookings/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
+    @PreAuthorize("hasAuthority('VIEW_BOOKINGS') or hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
     public ResponseEntity<List<BookingResponse>> searchBookings(
             @RequestParam(value = "query", required = false) String query,
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -33,7 +33,7 @@ public class AdminBookingController {
 
     @Operation(summary = "Lấy danh sách đặt lịch cho Admin/POS", description = "Lấy danh sách đơn hàng theo ngày và/hoặc trạng thái cho giao diện quản lý quầy POS")
     @GetMapping("/bookings")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
+    @PreAuthorize("hasAuthority('VIEW_BOOKINGS') or hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
     public ResponseEntity<List<BookingResponse>> getBookings(
             @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(value = "status", required = false) String status) {
@@ -42,14 +42,14 @@ public class AdminBookingController {
 
     @Operation(summary = "Khôi phục check-in trễ", description = "Khôi phục và chuyển trạng thái đơn hàng bị trễ (No-Show) sang IN_PROGRESS nếu slot chưa quá giờ kết thúc và còn chỗ trống")
     @PostMapping("/bookings/{id}/checkin-late")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
+    @PreAuthorize("hasAuthority('CHECKIN_LATE') or hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
     public ResponseEntity<BookingResponse> checkinLate(@PathVariable("id") String id) {
         return ResponseEntity.ok(bookingService.checkinLate(id));
     }
 
     @Operation(summary = "Giám sát công suất slot trong ngày", description = "Lấy thông tin số lượng đơn đã đặt và số lượng slot đã khóa thủ công theo từng khung giờ trong ngày")
     @GetMapping("/slots/occupancy-monitor")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
+    @PreAuthorize("hasAuthority('VIEW_BOOKINGS') or hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
     public ResponseEntity<List<SlotOccupancyResponse>> getOccupancyMonitor(
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(bookingService.getOccupancyMonitor(date));
@@ -57,7 +57,7 @@ public class AdminBookingController {
 
     @Operation(summary = "Điều chỉnh khóa slot thủ công (ON/OFF)", description = "Quản trị viên / Quản lý khóa hoặc mở khóa toàn bộ công suất trống còn lại của slot")
     @PostMapping("/slots/{id}/lock")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAuthority('LOCK_SLOT') or hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<SlotOccupancyResponse> adjustLock(
             @PathVariable("id") Long slotId,
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -67,7 +67,7 @@ public class AdminBookingController {
 
     @Operation(summary = "Lấy danh sách tất cả các slot đang bị khóa", description = "Lấy tất cả các slot đang bị khóa thủ công")
     @GetMapping("/slots/locks")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAuthority('LOCK_SLOT') or hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<List<com.autowashpro.autowashpro_be.modules.booking.dto.SlotLockResponse>> getAllSlotLocks() {
         return ResponseEntity.ok(bookingService.getAllSlotLocks());
     }

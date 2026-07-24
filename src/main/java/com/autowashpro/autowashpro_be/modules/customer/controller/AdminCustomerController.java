@@ -31,7 +31,7 @@ public class AdminCustomerController {
 
     @GetMapping("/stats")
     @ApiHidden
-    @PreAuthorize("hasAuthority('VIEW_CUSTOMER_PROFILE')")
+    @PreAuthorize("hasAuthority('VIEW_CUSTOMERS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(operationId = "04-01-stats", summary = "[READ] Thống kê khách hàng")
     public ResponseEntity<CustomerSummaryStatsResponse> stats() {
         return ResponseEntity.ok(customerAdminService.getSummaryStats());
@@ -39,14 +39,14 @@ public class AdminCustomerController {
 
     @GetMapping("/options")
     @ApiHidden
-    @PreAuthorize("hasAuthority('VIEW_CUSTOMER_PROFILE')")
+    @PreAuthorize("hasAuthority('VIEW_CUSTOMERS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(operationId = "04-02-options", summary = "[READ] Dropdown khách hàng (Quick Booking modal)")
     public ResponseEntity<List<CustomerOptionResponse>> options() {
         return ResponseEntity.ok(customerAdminService.listOptions());
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('VIEW_CUSTOMER_PROFILE')")
+    @PreAuthorize("hasAuthority('VIEW_CUSTOMERS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(operationId = "04-03-list", summary = "[READ] Danh sách khách hàng (phân trang + tìm kiếm)")
     public ResponseEntity<PageResponse<CustomerResponse>> list(
             @RequestParam(required = false) String status,
@@ -59,21 +59,21 @@ public class AdminCustomerController {
 
     @GetMapping("/{id}")
     @ApiHidden
-    @PreAuthorize("hasAuthority('VIEW_CUSTOMER_PROFILE')")
+    @PreAuthorize("hasAuthority('VIEW_CUSTOMERS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(operationId = "04-04-detail", summary = "[READ] Chi tiết khách hàng")
     public ResponseEntity<CustomerResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(customerAdminService.getById(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('MANAGE_CUSTOMER_STATUS')")
+    @PreAuthorize("hasAuthority('MANAGE_CUSTOMER_STATUS') or hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(operationId = "04-05-create", summary = "[CREATE] Tạo khách hàng (admin provisioning)")
     public ResponseEntity<CustomerResponse> create(@Valid @RequestBody CreateCustomerRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(customerAdminService.createCustomer(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('MANAGE_CUSTOMER_STATUS')")
+    @PreAuthorize("hasAuthority('MANAGE_CUSTOMER_STATUS') or hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(operationId = "04-06-update", summary = "[UPDATE] Cập nhật khách hàng")
     public ResponseEntity<CustomerResponse> update(
             @PathVariable Long id,
@@ -83,7 +83,7 @@ public class AdminCustomerController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('MANAGE_CUSTOMER_STATUS')")
+    @PreAuthorize("hasAuthority('MANAGE_CUSTOMER_STATUS') or hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(operationId = "04-07-update-status", summary = "[UPDATE] Khóa / mở khóa tài khoản (ACTIVE ↔ INACTIVE)")
     public ResponseEntity<CustomerResponse> updateStatus(
             @PathVariable Long id,
@@ -93,7 +93,7 @@ public class AdminCustomerController {
     }
 
     @GetMapping("/{id}/points/history")
-    @PreAuthorize("hasAuthority('VIEW_CUSTOMER_PROFILE')")
+    @PreAuthorize("hasAuthority('VIEW_CUSTOMERS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(summary = "Xem lịch sử tích lũy và sử dụng điểm thưởng của khách hàng (CRM Detail)")
     public ResponseEntity<List<PointTransactionResponse>> getCustomerPointHistory(@PathVariable Long id) {
         return ResponseEntity.ok(loyaltyService.getCustomerPointHistory(id));
