@@ -129,11 +129,20 @@ public class MailService {
                 helper.setTo(normalizedEmail);
                 helper.setSubject(subject);
                 helper.setText(html, true);
-                mailSender.send(message);
-                log.info("[Mail/GMAIL] {} | from={} | to={}", templateName, fromEmail, normalizedEmail);
-                return new SendResult(true, "GMAIL", "Email sent via Gmail SMTP", actionUrl, fromEmail, normalizedEmail);
+
+                // Run SMTP send asynchronously in a background thread to prevent blocking
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    try {
+                        mailSender.send(message);
+                        log.info("[Mail/GMAIL] Asynchronous send successful: {} | from={} | to={}", templateName, fromEmail, normalizedEmail);
+                    } catch (Exception ex) {
+                        log.error("[Mail/GMAIL] Asynchronous send failed for {} to {}: {}", templateName, normalizedEmail, ex.getMessage(), ex);
+                    }
+                });
+
+                return new SendResult(true, "GMAIL", "Email dispatch initiated via Gmail SMTP (Async)", actionUrl, fromEmail, normalizedEmail);
             } catch (Exception ex) {
-                log.error("[Mail/GMAIL] Failed to send {} to {}: {}", templateName, normalizedEmail, ex.getMessage(), ex);
+                log.error("[Mail/GMAIL] Failed to initialize MimeMessage for {} to {}: {}", templateName, normalizedEmail, ex.getMessage(), ex);
                 return new SendResult(false, "GMAIL", ex.getMessage(), actionUrl, fromEmail, normalizedEmail);
             }
         }
