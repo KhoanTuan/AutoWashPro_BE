@@ -63,6 +63,15 @@ public class CustomerVehicleController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/default")
+    @Operation(summary = "Đặt phương tiện làm mặc định cho khách hàng")
+    public ResponseEntity<VehicleResponse> setDefaultVehicle(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") Long vehicleId) {
+        requireAuthenticated(principal);
+        return ResponseEntity.ok(vehicleService.setDefaultVehicle(principal.getId(), vehicleId));
+    }
+
     private void requireAuthenticated(UserPrincipal principal) {
         if (principal == null || principal.getId() == null) {
             throw new BadRequestException("Vui lòng đăng nhập để sử dụng chức năng quản lý xe!");

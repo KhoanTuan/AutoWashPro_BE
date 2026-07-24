@@ -394,6 +394,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                             .customer(customer)
                             .licensePlate(seed.licensePlate())
                             .model(seed.model())
+                            .isDefault(true)
                             .build()),
                     () -> log.warn("Customer with phone {} not found — skip vehicle {}",
                             seed.phone(), seed.licensePlate())

@@ -58,9 +58,8 @@ public class AdminCustomerController {
     }
 
     @GetMapping("/{id}")
-    @ApiHidden
-    @PreAuthorize("hasAuthority('VIEW_CUSTOMERS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
-    @Operation(operationId = "04-04-detail", summary = "[READ] Chi tiết khách hàng")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF') or hasAuthority('VIEW_CUSTOMERS') or hasRole('MANAGER') or hasRole('CASHIER')")
+    @Operation(summary = "Lấy thông tin chi tiết khách hàng theo ID (VIP Tier, Spending, Points)")
     public ResponseEntity<CustomerResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(customerAdminService.getById(id));
     }

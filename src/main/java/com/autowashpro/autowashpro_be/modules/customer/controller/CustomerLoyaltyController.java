@@ -7,6 +7,9 @@ import com.autowashpro.autowashpro_be.modules.customer.service.LoyaltyService;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.autowashpro.autowashpro_be.modules.customer.dto.CustomerLoyaltyProfileResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,7 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/customer/loyalty")
 @RequiredArgsConstructor
-@Tag(name = "Customer Loyalty & VIP Benefits", description = "Chốt chặn Quyền lợi VIP & Giới hạn ngày đặt lịch (Booking Window)")
+@Tag(name = "Customer Loyalty & VIP Benefits", description = "Chốt chặn Quyền lợi VIP & Giới hạn ngày đặt lịch")
 public class CustomerLoyaltyController {
 
     private final LoyaltyService loyaltyService;
@@ -49,5 +52,15 @@ public class CustomerLoyaltyController {
             throw new BadRequestException("Vui lòng đăng nhập để kiểm tra lịch sử điểm!");
         }
         return ResponseEntity.ok(loyaltyService.getCustomerPointHistory(principal.getId()));
+    }
+
+    @GetMapping("/profile")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Lấy thông tin cá nhân khách hàng (Loyalty Points, Total Spend, Tier)")
+    public ResponseEntity<CustomerLoyaltyProfileResponse> getCustomerProfile(@AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null || principal.getId() == null) {
+            throw new BadRequestException("Vui lòng đăng nhập để kiểm tra thông tin!");
+        }
+        return ResponseEntity.ok(loyaltyService.getCustomerLoyaltyProfile(principal.getId()));
     }
 }

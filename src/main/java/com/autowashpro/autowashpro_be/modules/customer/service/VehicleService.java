@@ -109,6 +109,25 @@ public class VehicleService {
         log.info("Deleted vehicle ID: {} (Plate: {})", vehicleId, vehicle.getLicensePlate());
     }
 
+    @Transactional
+    public VehicleResponse setDefaultVehicle(Long customerId, Long vehicleId) {
+        Vehicle targetVehicle = vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy xe với ID: " + vehicleId));
+
+        if (!targetVehicle.getCustomer().getCustomerId().equals(customerId)) {
+            throw new BadRequestException("Bạn không có quyền chỉnh sửa xe này!");
+        }
+
+        List<Vehicle> customerVehicles = vehicleRepository.findByCustomerCustomerIdOrderByCreatedAtAsc(customerId);
+        for (Vehicle v : customerVehicles) {
+            v.setIsDefault(v.getVehicleId().equals(vehicleId));
+        }
+        vehicleRepository.saveAll(customerVehicles);
+        
+        log.info("Set vehicle {} (ID: {}) as default for customer {}", targetVehicle.getLicensePlate(), vehicleId, customerId);
+        return mapToResponse(targetVehicle);
+    }
+
     private VehicleResponse mapToResponse(Vehicle vehicle) {
         return VehicleResponse.builder()
                 .vehicleId(vehicle.getVehicleId())
@@ -116,6 +135,7 @@ public class VehicleService {
                 .licensePlate(vehicle.getLicensePlate())
                 .model(vehicle.getModel())
                 .createdAt(vehicle.getCreatedAt())
+                .isDefault(vehicle.getIsDefault())
                 .build();
     }
 }
