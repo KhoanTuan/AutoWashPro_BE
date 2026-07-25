@@ -145,6 +145,13 @@ public class BookingService {
             throw new BadRequestException("Tài khoản của bạn hiện đang bị tạm khóa hoặc chưa kích hoạt. Vui lòng liên hệ Hotline xưởng để được hỗ trợ!");
         }
 
+        boolean hasDuplicate = bookingRepository.existsByCustomerCustomerIdAndBookingDateAndTimeSlotSlotIdAndStatusIn(
+                customer.getCustomerId(), request.getBookingDate(), request.getTimeSlotId(), ACTIVE_CAPACITY_STATUSES);
+        if (hasDuplicate) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT, "Khách hàng đã có lịch đặt trùng khung giờ này.");
+        }
+
         validateBookingDate(request.getBookingDate(), customer);
 
         // Kiểm tra xem khách hàng có đang bị phạt khóa đặt lịch 7 ngày hay không (do trễ hẹn No-Show >= 3 lần trong vòng 30 ngày)
