@@ -145,11 +145,17 @@ public class BookingService {
             throw new BadRequestException("Tài khoản của bạn hiện đang bị tạm khóa hoặc chưa kích hoạt. Vui lòng liên hệ Hotline xưởng để được hỗ trợ!");
         }
 
+        List<BookingStatus> checkStatuses = Arrays.asList(
+                BookingStatus.PENDING,
+                BookingStatus.CONFIRMED,
+                BookingStatus.IN_PROGRESS,
+                BookingStatus.COMPLETED
+        );
         boolean hasDuplicate = bookingRepository.existsByCustomerCustomerIdAndBookingDateAndTimeSlotSlotIdAndStatusIn(
-                customer.getCustomerId(), request.getBookingDate(), request.getTimeSlotId(), ACTIVE_CAPACITY_STATUSES);
+                customer.getCustomerId(), request.getBookingDate(), request.getTimeSlotId(), checkStatuses);
         if (hasDuplicate) {
             throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.CONFLICT, "Khách hàng đã có lịch đặt trùng khung giờ này.");
+                org.springframework.http.HttpStatus.CONFLICT, "Khách hàng đã có lịch đặt hoặc đã thanh toán ở khung giờ này.");
         }
 
         validateBookingDate(request.getBookingDate(), customer);
