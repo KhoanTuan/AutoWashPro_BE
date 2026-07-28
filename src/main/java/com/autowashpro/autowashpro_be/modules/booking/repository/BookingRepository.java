@@ -39,6 +39,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("SELECT b FROM Booking b WHERE b.status = 'COMPLETED' AND b.voucherCode IS NOT NULL")
     List<Booking> findCompletedBookingsWithVoucher();
 
+    boolean existsByTimeSlotSlotId(Long slotId);
+
     @Query("SELECT b FROM Booking b WHERE (b.status = com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus.PENDING OR b.status = com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus.CONFIRMED) AND " +
            "(b.bookingDate < :today OR (b.bookingDate = :today AND b.timeSlot.startTime < :cutoffTime))")
     List<Booking> findOverdueBookings(LocalDate today, LocalTime cutoffTime);

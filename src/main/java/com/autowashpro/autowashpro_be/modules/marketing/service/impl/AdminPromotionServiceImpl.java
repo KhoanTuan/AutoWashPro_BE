@@ -136,8 +136,8 @@ public class AdminPromotionServiceImpl implements AdminPromotionService {
     public void deletePromotion(Long id) {
         Promotion promotion = promotionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chiến dịch khuyến mãi với ID: " + id));
-        promotion.setStatus(PromotionStatus.DELETED);
-        promotionRepository.save(promotion);
+        customerPromotionRepository.deleteByPromotionId(id);
+        promotionRepository.delete(promotion);
     }
 
     @Override

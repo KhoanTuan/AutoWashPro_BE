@@ -27,4 +27,6 @@ public interface CustomerPromotionRepository extends JpaRepository<CustomerPromo
     long countBySourceIn(List<CustomerPromotionSource> sources);
 
     long countByStatus(CustomerPromotionStatus status);
+
+    void deleteByPromotionId(Long promotionId);
 }

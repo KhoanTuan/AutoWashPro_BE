@@ -255,6 +255,8 @@ public class CustomerAdminService {
             log.info("Locked customer account id={} name={}. Cancelled active bookings and sent alert.", id, customer.getFullName());
 
         } else if (targetStatus == CustomerStatus.ACTIVE) {
+            customer.setStatus(targetStatus);
+            customerRepository.save(customer);
             // Gửi thông báo hệ thống chào mừng hoạt động lại
             realtimeNotificationService.notifyGeneral(id, 
                     "🎉 Khôi phục tài khoản thành công!", 

@@ -96,6 +96,18 @@ public class ServiceCatalogService {
         return mapToResponse(serviceCatalogRepository.save(service));
     }
 
+    @Transactional
+    public void deleteService(Long id) {
+        ServiceCatalog service = serviceCatalogRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Service catalog not found with id: " + id));
+
+        if (List.of("PKG-STD", "PKG-DELUXE", "PKG-ULTIMATE").contains(service.getServiceCode())) {
+            throw new BadRequestException("Không thể xóa gói dịch vụ hệ thống cốt lõi!");
+        }
+
+        serviceCatalogRepository.delete(service);
+    }
+
     public ServiceCatalogResponse mapToResponse(ServiceCatalog entity) {
         return ServiceCatalogResponse.builder()
                 .serviceId(entity.getServiceId())
