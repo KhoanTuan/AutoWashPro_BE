@@ -26,6 +26,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class CustomerAuthService {
 
     private final CustomerRepository customerRepository;
@@ -359,6 +360,20 @@ public class CustomerAuthService {
                 .loyaltyPoints(customer.getLoyaltyPoints())
                 .vehicles(vehicles)
                 .build();
+    }
+
+    @Transactional
+    public CustomerProfileResponse updateProfile(UserPrincipal principal, com.autowashpro.autowashpro_be.modules.customer.dto.UpdateCustomerProfileRequest request) {
+        Customer customer = customerRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+
+        if (request.getFullName() != null && !request.getFullName().trim().isEmpty()) {
+            customer.setFullName(request.getFullName().trim());
+        }
+
+        customerRepository.save(customer);
+        log.info("Updated profile for customer {}: fullName={}", customer.getCustomerId(), customer.getFullName());
+        return getProfile(principal);
     }
 
     private CustomerAuthResponse buildAuthResponse(Customer customer) {

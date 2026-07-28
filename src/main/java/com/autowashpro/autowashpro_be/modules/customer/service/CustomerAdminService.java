@@ -211,10 +211,10 @@ public class CustomerAdminService {
             return mapper.toResponse(customer);
         }
 
-        if (targetStatus == CustomerStatus.INACTIVE) {
-            customer.setStatus(targetStatus);
-            customerRepository.save(customer);
+        customer.setStatus(targetStatus);
+        customerRepository.save(customer);
 
+        if (targetStatus == CustomerStatus.INACTIVE) {
             // Nghiệp vụ: Tự động hủy toàn bộ đơn đặt lịch chưa hoàn thành (PENDING, CONFIRMED, IN_PROGRESS) của khách
             List<Booking> customerBookings = bookingRepository.findAllByCustomerCustomerIdOrderByCreatedAtDesc(id);
             for (Booking booking : customerBookings) {
