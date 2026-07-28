@@ -8,6 +8,8 @@ import java.util.List;
 
 @Repository
 public interface TimeSlotRepository extends JpaRepository<TimeSlot, Long> {
+    List<TimeSlot> findAllByOrderByDisplayOrderAscStartTimeAsc();
+    List<TimeSlot> findAllByIsActiveTrueOrderByDisplayOrderAscStartTimeAsc();
     List<TimeSlot> findAllByOrderByDisplayOrderAsc();
     List<TimeSlot> findAllByIsActiveTrueOrderByDisplayOrderAsc();
 }

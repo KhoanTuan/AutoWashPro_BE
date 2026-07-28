@@ -58,15 +58,15 @@ public class AdminPromotionController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('MANAGE_PROMOTIONS') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAuthority('MANAGE_PROMOTIONS') or hasRole('ADMIN')")
     @Operation(summary = "[UPDATE] Cập nhật trạng thái Kích hoạt / Tạm dừng", description = "Đổi trạng thái chiến dịch (ACTIVE, PAUSED).")
     public ResponseEntity<PromotionResponse> updateStatus(@PathVariable Long id, @RequestParam PromotionStatus status) {
         return ResponseEntity.ok(promotionService.updateStatus(id, status));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('MANAGE_PROMOTIONS') or hasRole('ADMIN') or hasRole('MANAGER')")
-    @Operation(summary = "[DELETE] Xóa chiến dịch Khuyến mãi", description = "Chuyển trạng thái chiến dịch thành DELETED.")
+    @PreAuthorize("hasAuthority('MANAGE_PROMOTIONS') or hasRole('ADMIN')")
+    @Operation(summary = "[DELETE] Xóa vĩnh viễn chiến dịch Khuyến mãi", description = "Xóa vĩnh viễn chiến dịch khỏi hệ thống DB.")
     public ResponseEntity<Void> deletePromotion(@PathVariable Long id) {
         promotionService.deletePromotion(id);
         return ResponseEntity.noContent().build();

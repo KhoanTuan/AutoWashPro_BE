@@ -52,7 +52,7 @@ app:
     url: http://localhost:5173
   # mail.mode: GMAIL hoặc MOCK — đặt trong application-local.yaml (giống auth-test-sandbox)
   mail:
-    mode: MOCK
+    mode: GMAIL
   security-token:
     email-verification-minutes: 30
     password-reset-minutes: 10

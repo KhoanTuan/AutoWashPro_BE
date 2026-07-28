@@ -128,7 +128,7 @@ class AutoWashProBeApplicationTests {
             // ==========================================
             // TEST FLOW 2: THANH TOÁN HOÀN TẤT (CHECKOUT)
             // ==========================================
-            BookingResponse checkoutRes = bookingService.completeCheckout(createdBookingId, "cash");
+            BookingResponse checkoutRes = bookingService.completeCheckout(String.valueOf(createdBookingId), "cash");
             assertNotNull(checkoutRes);
             assertEquals(BookingStatus.COMPLETED, checkoutRes.getStatus());
 

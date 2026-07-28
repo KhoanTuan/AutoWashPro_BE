@@ -35,8 +35,8 @@ public class TimeSlotService {
     @Transactional(readOnly = true)
     public List<TimeSlotResponse> getAllSlots(boolean activeOnly) {
         List<TimeSlot> slots = activeOnly
-                ? timeSlotRepository.findAllByIsActiveTrueOrderByDisplayOrderAsc()
-                : timeSlotRepository.findAllByOrderByDisplayOrderAsc();
+                ? timeSlotRepository.findAllByIsActiveTrueOrderByDisplayOrderAscStartTimeAsc()
+                : timeSlotRepository.findAllByOrderByDisplayOrderAscStartTimeAsc();
         return slots.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
@@ -123,6 +123,18 @@ public class TimeSlotService {
 
         slot.setIsActive(targetStatus);
         return mapToResponse(timeSlotRepository.save(slot));
+    }
+
+    @Transactional
+    public void deleteSlot(Long id) {
+        TimeSlot slot = timeSlotRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Time slot not found with id: " + id));
+
+        if (bookingRepository.existsByTimeSlotSlotId(id)) {
+            throw new BadRequestException("⚠️ Ràng buộc dữ liệu: Không thể xóa khung giờ đã có lịch đặt xe liên kết trong hệ thống!");
+        }
+
+        timeSlotRepository.delete(slot);
     }
 
     private void validateNoOverlap(LocalTime start, LocalTime end, String dayOfWeek, Long excludeId) {

@@ -131,7 +131,7 @@ class LoyaltyLifecycleTests {
             createdBookingId = bookingRes.getBookingId();
 
             // Tiến hành thanh toán hoàn thành booking
-            bookingService.completeCheckout(createdBookingId, "cash");
+            bookingService.completeCheckout(String.valueOf(createdBookingId), "cash");
 
             // Verify số điểm tích lũy: 30,000 / 20,000 = 1.5. Làm tròn xuống là 1 điểm.
             Customer customerAfterCheckout = customerRepository.findById(customer.getCustomerId()).orElseThrow();

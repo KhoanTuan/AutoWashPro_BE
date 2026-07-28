@@ -18,6 +18,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     int countByBookingDateAndStatusIn(LocalDate bookingDate, Collection<BookingStatus> statuses);
     boolean existsByBookingDateAndLicensePlateIgnoreCaseAndStatusIn(LocalDate bookingDate, String licensePlate, Collection<BookingStatus> statuses);
     int countByCustomerCustomerIdAndBookingDateAndStatusIn(Long customerId, LocalDate bookingDate, Collection<BookingStatus> statuses);
+    boolean existsByCustomerCustomerIdAndBookingDateAndTimeSlotSlotIdAndStatusIn(Long customerId, LocalDate bookingDate, Long slotId, Collection<BookingStatus> statuses);
     List<Booking> findAllByCustomerCustomerIdOrderByCreatedAtDesc(Long customerId);
     Optional<Booking> findByBookingCode(String bookingCode);
     boolean existsByBookingCode(String bookingCode);
@@ -37,6 +38,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b WHERE b.status = 'COMPLETED' AND b.voucherCode IS NOT NULL")
     List<Booking> findCompletedBookingsWithVoucher();
+
+    boolean existsByTimeSlotSlotId(Long slotId);
 
     @Query("SELECT b FROM Booking b WHERE (b.status = com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus.PENDING OR b.status = com.autowashpro.autowashpro_be.modules.booking.entity.BookingStatus.CONFIRMED) AND " +
            "(b.bookingDate < :today OR (b.bookingDate = :today AND b.timeSlot.startTime < :cutoffTime))")

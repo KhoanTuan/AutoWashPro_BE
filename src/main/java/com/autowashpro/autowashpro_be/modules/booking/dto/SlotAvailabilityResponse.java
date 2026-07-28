@@ -10,6 +10,7 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Schema(description = "Thông tin trạng thái khả dụng của 1 khung giờ trong ngày")
 public class SlotAvailabilityResponse {
     private Long slotId;
 
@@ -23,6 +24,13 @@ public class SlotAvailabilityResponse {
     private Integer bookedCount;
     private Integer availableCapacity;
     private Boolean isAvailable;
-    private String disabledReason; // null if available, otherwise "FULL", "MAINTENANCE", "PAST", or "CLOSED_HOLIDAY"
+    private String disabledReason; // null if available, otherwise "FULL", "MAINTENANCE", "PAST", or "CLOSED_HOLIDAY: reason"
+
+    @Schema(description = "true nếu ngày này bị khóa toàn bộ (garage_closure)", example = "false")
+    @Builder.Default
+    private Boolean isDayLocked = false;
+
+    @Schema(description = "Lý do đóng cửa/khóa ngày (nếu isDayLocked = true)", example = "Bảo trì thiết bị")
+    private String closureReason;
 }
 

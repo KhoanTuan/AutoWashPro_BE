@@ -1,5 +1,6 @@
 package com.autowashpro.autowashpro_be.modules.customer.service;
 
+import com.autowashpro.autowashpro_be.modules.customer.dto.CustomerLoyaltyProfileResponse;
 import com.autowashpro.autowashpro_be.common.exception.ResourceNotFoundException;
 import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltyTierRequest;
 import com.autowashpro.autowashpro_be.modules.customer.dto.LoyaltyTierResponse;
@@ -121,12 +122,26 @@ public class LoyaltyService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LoyaltyTierResponse getMyLoyaltyStatus(Long customerId) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với ID: " + customerId));
 
         List<LoyaltyTier> allTiers = loyaltyTierRepository.findAllByOrderByMinSpendAsc();
+        BigDecimal tierSpend = customer.getTierSpending() != null ? customer.getTierSpending() : BigDecimal.ZERO;
+        
+        for (int i = allTiers.size() - 1; i >= 0; i--) {
+            LoyaltyTier tier = allTiers.get(i);
+            if (tierSpend.compareTo(tier.getMinSpend()) >= 0) {
+                if (customer.getTier() == null || customer.getTier().getMinSpend().compareTo(tier.getMinSpend()) < 0) {
+                    customer.setTier(tier);
+                    customerRepository.save(customer);
+                    log.info("Customer {} dynamically upgraded to VIP tier: {} based on spending", customer.getCustomerId(), tier.getTierName());
+                }
+                break;
+            }
+        }
+
         LoyaltyTier currentTier = customer.getTier();
         if (currentTier == null && !allTiers.isEmpty()) {
             currentTier = allTiers.get(0);
@@ -221,5 +236,27 @@ public class LoyaltyService {
             case "PLATINUM" -> "Platinum";
             default -> tierName.substring(0, 1).toUpperCase() + tierName.substring(1).toLowerCase();
         };
+    }
+
+    @Transactional
+    public CustomerLoyaltyProfileResponse getCustomerLoyaltyProfile(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với ID: " + customerId));
+
+        LoyaltyTierResponse status = getMyLoyaltyStatus(customerId);
+
+        return CustomerLoyaltyProfileResponse.builder()
+                .customerId(customer.getCustomerId())
+                .fullName(customer.getFullName())
+                .email(customer.getEmail())
+                .phoneNumber(customer.getPhoneNumber())
+                .loyaltyPoints(customer.getLoyaltyPoints())
+                .totalSpending(customer.getTotalSpending())
+                .tierName(customer.getTier() != null ? customer.getTier().getTierName() : "MEMBER")
+                .nextTierName(status.getNextTierDisplayName() != null ? status.getNextTierDisplayName() : "SILVER")
+                .nextTierMinSpend(status.getNextTierMinSpend())
+                .spendNeededForNextTier(status.getSpendNeededForNextTier())
+                .progressPercentage(status.getProgressPercentage() != null ? status.getProgressPercentage().doubleValue() : 0.0)
+                .build();
     }
 }

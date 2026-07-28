@@ -73,9 +73,10 @@ public class BookingService {
 
         Optional<GarageClosure> closureOpt = garageClosureRepository.findByClosureDate(date);
         boolean isClosedHoliday = closureOpt.isPresent() && Boolean.TRUE.equals(closureOpt.get().getIsFullDay());
-        String holidayReason = isClosedHoliday ? ("CLOSED_HOLIDAY: " + closureOpt.get().getReason()) : null;
+        String closureReasonText = isClosedHoliday ? closureOpt.get().getReason() : null;
+        String holidayReason = isClosedHoliday ? ("CLOSED_HOLIDAY: " + closureReasonText) : null;
 
-        List<TimeSlot> slots = timeSlotRepository.findAllByOrderByDisplayOrderAsc();
+        List<TimeSlot> slots = timeSlotRepository.findAllByOrderByDisplayOrderAscStartTimeAsc();
         List<SlotAvailabilityResponse> responses = new ArrayList<>();
 
         for (TimeSlot slot : slots) {
@@ -116,6 +117,8 @@ public class BookingService {
                     .availableCapacity(availableCapacity)
                     .isAvailable(isAvailable)
                     .disabledReason(reason)
+                    .isDayLocked(isClosedHoliday)
+                    .closureReason(closureReasonText)
                     .build());
         }
 
@@ -124,7 +127,7 @@ public class BookingService {
 
     private boolean isSlotApplicableForDate(TimeSlot slot, LocalDate date) {
         String dowConfig = slot.getDayOfWeek();
-        if (dowConfig == null || dowConfig.equalsIgnoreCase("ALL")) {
+        if (dowConfig == null || dowConfig.trim().isEmpty() || dowConfig.equalsIgnoreCase("ALL")) {
             return true;
         }
         int val = date.getDayOfWeek().getValue(); // 1 = MON, ..., 7 = SUN
@@ -135,14 +138,28 @@ public class BookingService {
         if (dowConfig.equalsIgnoreCase("WEEKEND") && isWeekend) {
             return true;
         }
-        String shortName = date.getDayOfWeek().name().substring(0, 3); // MON, TUE...
-        return dowConfig.equalsIgnoreCase(shortName);
+        String fullDayName = date.getDayOfWeek().name(); // MONDAY, TUESDAY...
+        String shortName = fullDayName.substring(0, 3); // MON, TUE...
+        return dowConfig.equalsIgnoreCase(shortName) || dowConfig.equalsIgnoreCase(fullDayName);
     }
 
     @Transactional
     public BookingResponse createBooking(CreateBookingRequest request, Customer customer) {
         if (customer.getStatus() != CustomerStatus.ACTIVE) {
             throw new BadRequestException("Tài khoản của bạn hiện đang bị tạm khóa hoặc chưa kích hoạt. Vui lòng liên hệ Hotline xưởng để được hỗ trợ!");
+        }
+
+        List<BookingStatus> checkStatuses = Arrays.asList(
+                BookingStatus.PENDING,
+                BookingStatus.CONFIRMED,
+                BookingStatus.IN_PROGRESS,
+                BookingStatus.COMPLETED
+        );
+        boolean hasDuplicate = bookingRepository.existsByCustomerCustomerIdAndBookingDateAndTimeSlotSlotIdAndStatusIn(
+                customer.getCustomerId(), request.getBookingDate(), request.getTimeSlotId(), checkStatuses);
+        if (hasDuplicate) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT, "Khách hàng đã có lịch đặt hoặc đã thanh toán ở khung giờ này.");
         }
 
         validateBookingDate(request.getBookingDate(), customer);
