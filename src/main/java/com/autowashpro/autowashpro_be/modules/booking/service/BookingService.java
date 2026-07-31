@@ -69,6 +69,13 @@ public class BookingService {
             BookingStatus.IN_PROGRESS
     );
 
+    private static final List<BookingStatus> VEHICLE_OCCUPIED_STATUSES = Arrays.asList(
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+            BookingStatus.IN_PROGRESS,
+            BookingStatus.COMPLETED
+    );
+
     @Transactional(readOnly = true)
     public List<SlotAvailabilityResponse> getAvailableSlots(LocalDate date, Customer customer) {
         validateBookingDate(date, customer);
@@ -273,7 +280,7 @@ public class BookingService {
 
         // Kiểm tra xem xe này đã có lịch hẹn nào trùng khoảng thời gian [newStartDateTime, newEndDateTime) hay không
         List<Booking> existingVehicleBookings = bookingRepository.findAllByBookingDateAndLicensePlateIgnoreCaseAndStatusIn(
-                request.getBookingDate(), vehicle.getLicensePlate(), ACTIVE_CAPACITY_STATUSES);
+                request.getBookingDate(), vehicle.getLicensePlate(), VEHICLE_OCCUPIED_STATUSES);
 
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 
