@@ -76,27 +76,6 @@ public class BookingService {
             BookingStatus.COMPLETED
     );
 
-    private int countActiveBookingsOverlappingSlot(LocalDate date, TimeSlot targetSlot) {
-        List<Booking> activeBookings = bookingRepository.findAllByBookingDateAndStatusIn(date, ACTIVE_CAPACITY_STATUSES);
-        LocalTime targetStart = targetSlot.getStartTime();
-        LocalTime targetEnd = targetSlot.getEndTime();
-
-        int count = 0;
-        for (Booking booking : activeBookings) {
-            if (booking.getTimeSlot() == null) continue;
-            LocalTime bStart = booking.getTimeSlot().getStartTime();
-            int bDuration = calculateBookingDurationMinutes(booking);
-            LocalTime bEnd = bStart.plusMinutes(bDuration);
-
-            // Giao cắt thời gian giữa đơn hàng [bStart, bEnd) và targetSlot [targetStart, targetEnd)
-            boolean isOverlapping = bStart.isBefore(targetEnd) && targetStart.isBefore(bEnd);
-            if (isOverlapping) {
-                count++;
-            }
-        }
-        return count;
-    }
-
     @Transactional(readOnly = true)
     public List<SlotAvailabilityResponse> getAvailableSlots(LocalDate date, Customer customer) {
         validateBookingDate(date, customer);
@@ -118,7 +97,8 @@ public class BookingService {
             int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slot.getSlotId())
                     .map(SlotLock::getLockCount)
                     .orElse(0);
-            int bookedCount = countActiveBookingsOverlappingSlot(date, slot);
+            int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
+                    date, slot.getSlotId(), ACTIVE_CAPACITY_STATUSES);
             int availableCapacity = Math.max(0, slot.getMaxCapacity() - bookedCount - lockedCount);
 
             boolean isPast = date.isEqual(LocalDate.now()) && slot.getStartTime().isBefore(LocalTime.now());
@@ -243,53 +223,13 @@ public class BookingService {
             throw new BadRequestException("Khung giờ này đã qua trong ngày hôm nay");
         }
 
-        // 1. Lấy thông tin Gói rửa & Add-ons để tính tổng thời gian dọn rửa (phút)
-        ServiceCatalog packageService = serviceCatalogRepository.findById(request.getPackageId())
-                .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
-        if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
-            throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
-        }
-
-        int newBookingDurationMinutes = packageService.getDurationMinutes() != null ? packageService.getDurationMinutes() : 0;
-        if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
-            List<ServiceCatalog> addons = serviceCatalogRepository.findAllById(request.getAddonIds());
-            for (ServiceCatalog addon : addons) {
-                if (addon.getIsActive() && addon.getServiceType() == ServiceType.ADDON) {
-                    newBookingDurationMinutes += addon.getDurationMinutes() != null ? addon.getDurationMinutes() : 0;
-                }
-            }
-        }
-        newBookingDurationMinutes = Math.max(15, newBookingDurationMinutes);
-
-        LocalTime newStartTime = slot.getStartTime();
-        LocalTime newEndTime = newStartTime.plusMinutes(newBookingDurationMinutes);
-
-        // 2. Kiểm tra công suất ĐẦY XE trên TOÀN BỘ các khung giờ mà đơn rửa mới này chiếm chỗ [newStartTime, newEndTime)
-        List<TimeSlot> allSlots = timeSlotRepository.findAllByOrderByDisplayOrderAscStartTimeAsc();
-        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
-
-        for (TimeSlot checkSlot : allSlots) {
-            if (!isSlotApplicableForDate(checkSlot, request.getBookingDate())) continue;
-
-            LocalTime csStart = checkSlot.getStartTime();
-            LocalTime csEnd = checkSlot.getEndTime();
-
-            boolean isSpanning = csStart.isBefore(newEndTime) && newStartTime.isBefore(csEnd);
-            if (isSpanning) {
-                int bookedCount = countActiveBookingsOverlappingSlot(request.getBookingDate(), checkSlot);
-                int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(request.getBookingDate(), checkSlot.getSlotId())
-                        .map(SlotLock::getLockCount)
-                        .orElse(0);
-
-                if (bookedCount + lockedCount >= checkSlot.getMaxCapacity()) {
-                    throw new BadRequestException(String.format(
-                            "Khung giờ %s - %s đã đầy xe (%d/%d chỗ). Không thể nhận thêm đơn rửa %d phút từ %s!",
-                            csStart.format(timeFmt), csEnd.format(timeFmt),
-                            (bookedCount + lockedCount), checkSlot.getMaxCapacity(),
-                            newBookingDurationMinutes, newStartTime.format(timeFmt)
-                    ));
-                }
-            }
+        int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(request.getBookingDate(), slot.getSlotId())
+                .map(SlotLock::getLockCount)
+                .orElse(0);
+        int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
+                request.getBookingDate(), slot.getSlotId(), ACTIVE_CAPACITY_STATUSES);
+        if (bookedCount + lockedCount >= slot.getMaxCapacity()) {
+            throw new BadRequestException("Khung giờ này đã đầy xe (Đã đặt: " + bookedCount + ", Đã khóa: " + lockedCount + "/" + slot.getMaxCapacity() + "), vui lòng chọn khung giờ khác!");
         }
 
         int maxDailyBookings = (customer != null && customer.getTier() != null && customer.getTier().getTierName() != null) ? switch (customer.getTier().getTierName().toUpperCase()) {
@@ -316,6 +256,24 @@ public class BookingService {
             throw new BadRequestException("Biển số xe '" + cleanPlate + "' chưa có trong danh sách xe (Garage) của bạn! Vui lòng thêm xe vào Garage trước khi đặt lịch rửa.");
         }
         Vehicle vehicle = existingVehOpt.get();
+
+        ServiceCatalog packageService = serviceCatalogRepository.findById(request.getPackageId())
+                .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
+        if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
+            throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
+        }
+
+        // Tính tổng số phút của đơn đặt mới = Gói chính + các dịch vụ chọn thêm
+        int newBookingDurationMinutes = packageService.getDurationMinutes() != null ? packageService.getDurationMinutes() : 0;
+        if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
+            List<ServiceCatalog> addons = serviceCatalogRepository.findAllById(request.getAddonIds());
+            for (ServiceCatalog addon : addons) {
+                if (addon.getIsActive() && addon.getServiceType() == ServiceType.ADDON) {
+                    newBookingDurationMinutes += addon.getDurationMinutes() != null ? addon.getDurationMinutes() : 0;
+                }
+            }
+        }
+        newBookingDurationMinutes = Math.max(15, newBookingDurationMinutes);
 
         LocalDateTime newStartDateTime = request.getBookingDate().atTime(slot.getStartTime());
         LocalDateTime newEndDateTime = newStartDateTime.plusMinutes(newBookingDurationMinutes);
@@ -723,7 +681,7 @@ public class BookingService {
         return mapToResponse(savedBooking);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<SlotOccupancyResponse> getOccupancyMonitor(LocalDate date) {
         List<TimeSlot> slots = timeSlotRepository.findAllByOrderByDisplayOrderAsc();
         List<SlotOccupancyResponse> responses = new ArrayList<>();
@@ -736,7 +694,19 @@ public class BookingService {
                     .map(SlotLock::getLockCount)
                     .orElse(0);
 
-            boolean isLocked = (lockedCount > 0);
+            boolean isFullOrLocked = (bookedCount >= slot.getMaxCapacity()) || (lockedCount > 0) || !Boolean.TRUE.equals(slot.getIsActive());
+
+            // Tự động ghi nhận lockCount trong DB nếu slot đã chạm hoặc vượt công suất tối đa
+            if (bookedCount >= slot.getMaxCapacity() && lockedCount == 0) {
+                SlotLock autoLock = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slot.getSlotId())
+                        .orElseGet(() -> SlotLock.builder()
+                                .lockDate(date)
+                                .timeSlot(slot)
+                                .lockCount(slot.getMaxCapacity())
+                                .build());
+                autoLock.setLockCount(slot.getMaxCapacity());
+                slotLockRepository.save(autoLock);
+            }
 
             responses.add(SlotOccupancyResponse.builder()
                     .slotId(slot.getSlotId())
@@ -744,7 +714,7 @@ public class BookingService {
                     .maxCapacity(slot.getMaxCapacity())
                     .bookedCount(bookedCount)
                     .isActive(slot.getIsActive())
-                    .isLocked(isLocked)
+                    .isLocked(isFullOrLocked)
                     .build());
         }
         return responses;
@@ -768,10 +738,6 @@ public class BookingService {
         int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                 date, slotId, ACTIVE_CAPACITY_STATUSES);
 
-        if (lock && bookedCount >= slot.getMaxCapacity()) {
-            throw new BadRequestException("Khung giờ này đã đầy công suất đặt lịch (" + bookedCount + "/" + slot.getMaxCapacity() + "). Không thể khóa thêm chỗ trống!");
-        }
-
         SlotLock slotLock = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slotId)
                 .orElseGet(() -> SlotLock.builder()
                         .lockDate(date)
@@ -779,14 +745,17 @@ public class BookingService {
                         .lockCount(0)
                         .build());
 
-        int newCount = lock ? Math.max(0, slot.getMaxCapacity() - bookedCount) : 0;
+        int newCount = lock ? Math.max(1, slot.getMaxCapacity() - bookedCount) : 0;
+        if (lock && bookedCount >= slot.getMaxCapacity()) {
+            newCount = slot.getMaxCapacity();
+        }
 
         slotLock.setLockCount(newCount);
         slotLockRepository.save(slotLock);
 
         eventPublisher.publishEvent(new SlotCapacityChangeEvent(date, slotId));
 
-        boolean isLocked = (newCount > 0);
+        boolean isLocked = lock || (bookedCount >= slot.getMaxCapacity()) || (newCount > 0);
 
         return SlotOccupancyResponse.builder()
                 .slotId(slot.getSlotId())
