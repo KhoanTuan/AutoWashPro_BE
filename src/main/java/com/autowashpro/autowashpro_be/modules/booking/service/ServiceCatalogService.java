@@ -109,6 +109,23 @@ public class ServiceCatalogService {
     }
 
     public ServiceCatalogResponse mapToResponse(ServiceCatalog entity) {
+        List<ServiceCatalogResponse> included = null;
+        if (entity.getIncludedServices() != null && !entity.getIncludedServices().isEmpty()) {
+            included = entity.getIncludedServices().stream()
+                    .map(srv -> ServiceCatalogResponse.builder()
+                            .serviceId(srv.getServiceId())
+                            .serviceCode(srv.getServiceCode())
+                            .serviceName(srv.getServiceName())
+                            .serviceType(srv.getServiceType())
+                            .price(srv.getPrice())
+                            .durationMinutes(srv.getDurationMinutes())
+                            .description(srv.getDescription())
+                            .isActive(srv.getIsActive())
+                            .displayOrder(srv.getDisplayOrder())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
         return ServiceCatalogResponse.builder()
                 .serviceId(entity.getServiceId())
                 .serviceCode(entity.getServiceCode())
@@ -119,6 +136,7 @@ public class ServiceCatalogService {
                 .description(entity.getDescription())
                 .isActive(entity.getIsActive())
                 .displayOrder(entity.getDisplayOrder())
+                .includedServices(included)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

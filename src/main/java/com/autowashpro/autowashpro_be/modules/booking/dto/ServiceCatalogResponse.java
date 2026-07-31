@@ -21,6 +21,7 @@ public class ServiceCatalogResponse {
     private String description;
     private Boolean isActive;
     private Integer displayOrder;
+    private java.util.List<ServiceCatalogResponse> includedServices;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

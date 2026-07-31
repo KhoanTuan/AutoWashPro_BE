@@ -46,4 +46,14 @@ public class ServiceCatalog extends BaseEntity {
     @Builder.Default
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder = 0;
+
+    @Builder.Default
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "package_service",
+        joinColumns = @JoinColumn(name = "package_id"),
+        inverseJoinColumns = @JoinColumn(name = "service_id")
+    )
+    @OrderBy("displayOrder ASC, serviceId ASC")
+    private java.util.List<ServiceCatalog> includedServices = new java.util.ArrayList<>();
 }
