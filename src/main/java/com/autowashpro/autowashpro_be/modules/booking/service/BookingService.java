@@ -94,15 +94,16 @@ public class BookingService {
                 continue;
             }
 
+            boolean isSlotLockRecordPresent = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slot.getSlotId()).isPresent();
             int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slot.getSlotId())
                     .map(SlotLock::getLockCount)
                     .orElse(0);
             int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                     date, slot.getSlotId(), ACTIVE_CAPACITY_STATUSES);
-            int availableCapacity = Math.max(0, slot.getMaxCapacity() - bookedCount - lockedCount);
+            boolean isFull = isSlotLockRecordPresent || (bookedCount >= slot.getMaxCapacity()) || (lockedCount > 0) || (slot.getMaxCapacity() - bookedCount - lockedCount <= 0);
+            int availableCapacity = isFull ? 0 : Math.max(0, slot.getMaxCapacity() - bookedCount - lockedCount);
 
             boolean isPast = date.isEqual(LocalDate.now()) && slot.getStartTime().isBefore(LocalTime.now());
-            boolean isFull = availableCapacity <= 0;
             boolean isInactive = !slot.getIsActive();
 
             boolean isAvailable = !isClosedHoliday && !isInactive && !isPast && !isFull;
@@ -223,13 +224,14 @@ public class BookingService {
             throw new BadRequestException("Khung giờ này đã qua trong ngày hôm nay");
         }
 
+        boolean isSlotLockRecordPresent = slotLockRepository.findByLockDateAndTimeSlotSlotId(request.getBookingDate(), slot.getSlotId()).isPresent();
         int lockedCount = slotLockRepository.findByLockDateAndTimeSlotSlotId(request.getBookingDate(), slot.getSlotId())
                 .map(SlotLock::getLockCount)
                 .orElse(0);
         int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                 request.getBookingDate(), slot.getSlotId(), ACTIVE_CAPACITY_STATUSES);
-        if (bookedCount + lockedCount >= slot.getMaxCapacity()) {
-            throw new BadRequestException("Khung giờ này đã đầy xe (Đã đặt: " + bookedCount + ", Đã khóa: " + lockedCount + "/" + slot.getMaxCapacity() + "), vui lòng chọn khung giờ khác!");
+        if (isSlotLockRecordPresent || bookedCount >= slot.getMaxCapacity() || (bookedCount + lockedCount >= slot.getMaxCapacity())) {
+            throw new BadRequestException("Khung giờ " + slot.getStartTime() + " đã ĐẦY / KHÓA (Đã đặt: " + bookedCount + ", Đã khóa: " + lockedCount + "/" + slot.getMaxCapacity() + "), vui lòng chọn khung giờ khác!");
         }
 
         int maxDailyBookings = (customer != null && customer.getTier() != null && customer.getTier().getTierName() != null) ? switch (customer.getTier().getTierName().toUpperCase()) {
