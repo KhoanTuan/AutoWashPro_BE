@@ -250,18 +250,52 @@ public class BookingService {
         }
         Vehicle vehicle = existingVehOpt.get();
 
-        boolean isVehicleAlreadyBookedToday = bookingRepository.existsByBookingDateAndLicensePlateIgnoreCaseAndStatusIn(
-                request.getBookingDate(), vehicle.getLicensePlate(), ACTIVE_CAPACITY_STATUSES);
-        if (isVehicleAlreadyBookedToday) {
-            throw new BadRequestException("Xe mang biển số '" + vehicle.getLicensePlate() + "' hiện đang có 1 lịch hẹn giữ chỗ/chưa hoàn thành trong ngày " + 
-                    request.getBookingDate() + ". Vui lòng hoàn thành dịch vụ và thanh toán xong cho lượt này (hoặc hủy lịch cũ) trước khi đặt lượt tiếp theo cho xe!");
-        }
-
-
         ServiceCatalog packageService = serviceCatalogRepository.findById(request.getPackageId())
-                .orElseThrow(() -> new ResourceNotFoundException("Service package not found with id: " + request.getPackageId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
         if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
             throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
+        }
+
+        // Tính tổng số phút của đơn đặt mới = Gói chính + các dịch vụ chọn thêm
+        int newBookingDurationMinutes = packageService.getDurationMinutes() != null ? packageService.getDurationMinutes() : 0;
+        if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
+            List<ServiceCatalog> addons = serviceCatalogRepository.findAllById(request.getAddonIds());
+            for (ServiceCatalog addon : addons) {
+                if (addon.getIsActive() && addon.getServiceType() == ServiceType.ADDON) {
+                    newBookingDurationMinutes += addon.getDurationMinutes() != null ? addon.getDurationMinutes() : 0;
+                }
+            }
+        }
+        newBookingDurationMinutes = Math.max(15, newBookingDurationMinutes);
+
+        LocalDateTime newStartDateTime = request.getBookingDate().atTime(slot.getStartTime());
+        LocalDateTime newEndDateTime = newStartDateTime.plusMinutes(newBookingDurationMinutes);
+
+        // Kiểm tra xem xe này đã có lịch hẹn nào trùng khoảng thời gian [newStartDateTime, newEndDateTime) hay không
+        List<Booking> existingVehicleBookings = bookingRepository.findAllByBookingDateAndLicensePlateIgnoreCaseAndStatusIn(
+                request.getBookingDate(), vehicle.getLicensePlate(), ACTIVE_CAPACITY_STATUSES);
+
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+
+        for (Booking existingBooking : existingVehicleBookings) {
+            if (existingBooking.getTimeSlot() == null) continue;
+            LocalDateTime existingStartDateTime = existingBooking.getBookingDate().atTime(existingBooking.getTimeSlot().getStartTime());
+            int existingDurationMinutes = calculateBookingDurationMinutes(existingBooking);
+            LocalDateTime existingEndDateTime = existingStartDateTime.plusMinutes(existingDurationMinutes);
+
+            // Giao cắt thời gian (Overlap) khi: newStart < existingEnd AND existingStart < newEnd
+            boolean isOverlapping = newStartDateTime.isBefore(existingEndDateTime) && existingStartDateTime.isBefore(newEndDateTime);
+
+            if (isOverlapping) {
+                throw new BadRequestException(String.format(
+                        "Xe mang biển số '%s' đã có lịch hẹn từ %s đến %s (tổng thời gian dịch vụ %d phút). Vui lòng chọn khung giờ khác sau %s cho xe!",
+                        vehicle.getLicensePlate(),
+                        existingStartDateTime.format(timeFormatter),
+                        existingEndDateTime.format(timeFormatter),
+                        existingDurationMinutes,
+                        existingEndDateTime.format(timeFormatter)
+                ));
+            }
         }
 
         Booking booking = Booking.builder()
@@ -866,5 +900,21 @@ public class BookingService {
         } catch (Exception e) {
             log.error("Failed to run scheduled auto-cleanup for past closures/locks", e);
         }
+    }
+
+    private int calculateBookingDurationMinutes(Booking booking) {
+        if (booking.getItems() == null || booking.getItems().isEmpty()) {
+            return 30;
+        }
+        int totalMinutes = 0;
+        for (BookingItem item : booking.getItems()) {
+            if (item.getServiceId() != null) {
+                Optional<ServiceCatalog> scOpt = serviceCatalogRepository.findById(item.getServiceId());
+                if (scOpt.isPresent() && scOpt.get().getDurationMinutes() != null) {
+                    totalMinutes += scOpt.get().getDurationMinutes();
+                }
+            }
+        }
+        return totalMinutes > 0 ? totalMinutes : 30;
     }
 }
