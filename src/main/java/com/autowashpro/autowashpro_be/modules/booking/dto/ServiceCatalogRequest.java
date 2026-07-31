@@ -39,4 +39,6 @@ public class ServiceCatalogRequest {
 
     @Builder.Default
     private Integer displayOrder = 0;
+
+    private java.util.List<Long> includedServiceIds;
 }

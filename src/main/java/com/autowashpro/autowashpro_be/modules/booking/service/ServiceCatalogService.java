@@ -5,6 +5,7 @@ import com.autowashpro.autowashpro_be.common.exception.ResourceNotFoundException
 import com.autowashpro.autowashpro_be.modules.booking.dto.ServiceCatalogRequest;
 import com.autowashpro.autowashpro_be.modules.booking.dto.ServiceCatalogResponse;
 import com.autowashpro.autowashpro_be.modules.booking.entity.ServiceCatalog;
+import com.autowashpro.autowashpro_be.modules.booking.entity.ServiceType;
 import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,15 +34,27 @@ public class ServiceCatalogService {
             throw new BadRequestException("Service code '" + request.getServiceCode() + "' already exists");
         }
 
+        List<ServiceCatalog> included = new java.util.ArrayList<>();
+        int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : 15;
+
+        if (request.getServiceType() == ServiceType.PACKAGE && request.getIncludedServiceIds() != null && !request.getIncludedServiceIds().isEmpty()) {
+            included = serviceCatalogRepository.findAllById(request.getIncludedServiceIds());
+            int sumDuration = included.stream().mapToInt(s -> s.getDurationMinutes() != null ? s.getDurationMinutes() : 0).sum();
+            if (sumDuration > 0) {
+                duration = sumDuration;
+            }
+        }
+
         ServiceCatalog service = ServiceCatalog.builder()
                 .serviceCode(request.getServiceCode())
                 .serviceName(request.getServiceName())
                 .serviceType(request.getServiceType())
                 .price(request.getPrice())
-                .durationMinutes(request.getDurationMinutes())
+                .durationMinutes(duration)
                 .description(request.getDescription())
                 .isActive(request.getIsActive() != null ? request.getIsActive() : true)
                 .displayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : 0)
+                .includedServices(included)
                 .build();
 
         service = serviceCatalogRepository.save(service);
@@ -68,11 +81,22 @@ public class ServiceCatalogService {
             throw new BadRequestException("Service code '" + request.getServiceCode() + "' already exists");
         }
 
+        int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : (service.getDurationMinutes() != null ? service.getDurationMinutes() : 15);
+
+        if (request.getServiceType() == ServiceType.PACKAGE && request.getIncludedServiceIds() != null) {
+            List<ServiceCatalog> included = serviceCatalogRepository.findAllById(request.getIncludedServiceIds());
+            int sumDuration = included.stream().mapToInt(s -> s.getDurationMinutes() != null ? s.getDurationMinutes() : 0).sum();
+            if (sumDuration > 0) {
+                duration = sumDuration;
+            }
+            service.setIncludedServices(included);
+        }
+
         service.setServiceCode(request.getServiceCode());
         service.setServiceName(request.getServiceName());
         service.setServiceType(request.getServiceType());
         service.setPrice(request.getPrice());
-        service.setDurationMinutes(request.getDurationMinutes());
+        service.setDurationMinutes(duration);
         service.setDescription(request.getDescription());
         if (request.getIsActive() != null) {
             service.setIsActive(request.getIsActive());
