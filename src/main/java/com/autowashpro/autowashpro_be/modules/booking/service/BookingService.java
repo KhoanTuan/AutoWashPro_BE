@@ -103,7 +103,7 @@ public class BookingService {
             int availableCapacity = Math.max(0, slot.getMaxCapacity() - bookedCount - lockedCount);
 
             boolean isPast = date.isEqual(LocalDate.now()) && slot.getStartTime().isBefore(LocalTime.now());
-            boolean isFull = availableCapacity <= 0;
+            boolean isFull = availableCapacity <= 0 || (slot.getMaxCapacity() > 0 && bookedCount >= slot.getMaxCapacity()) || lockedCount > 0;
             boolean isInactive = !slot.getIsActive();
 
             boolean isAvailable = !isClosedHoliday && !isInactive && !isPast && !isFull;
