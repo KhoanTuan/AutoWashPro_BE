@@ -107,6 +107,71 @@ public class AdminPromotionServiceImpl implements AdminPromotionService {
     }
 
     @Override
+    @Transactional
+    public PromotionResponse updatePromotion(Long id, PromotionCreateRequest request) {
+        Promotion promotion = promotionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chiến dịch khuyến mãi với ID: " + id));
+
+        String cleanCode = request.getCode().trim().toUpperCase();
+        if (!promotion.getCode().equalsIgnoreCase(cleanCode)) {
+            promotionRepository.findByCode(cleanCode).ifPresent(p -> {
+                if (!p.getId().equals(id)) {
+                    throw new IllegalArgumentException("Mã chiến dịch ưu đãi đã tồn tại: " + cleanCode);
+                }
+            });
+            promotion.setCode(cleanCode);
+        }
+
+        if (request.getDiscountType() == null) {
+            throw new IllegalArgumentException("Kiểu chiết khấu không được để trống");
+        }
+
+        if (request.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+            if (request.getValue() == null || request.getValue().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Giá trị giảm của chiết khấu tiền mặt phải lớn hơn 0đ");
+            }
+            int costPoints = request.getCostPoints() != null ? request.getCostPoints() : 0;
+            if (costPoints == 0) {
+                if (request.getMinOrderValue() == null || request.getMinOrderValue().compareTo(request.getValue()) < 0) {
+                    throw new IllegalArgumentException("Voucher tiền mặt tặng miễn phí bắt buộc phải có Giá trị đơn hàng tối thiểu (Min Order Value) lớn hơn hoặc bằng giá trị giảm để tránh hóa đơn âm/0đ.");
+                }
+            }
+        } else if (request.getDiscountType() == DiscountType.PERCENTAGE) {
+            if (request.getValue() == null || request.getValue().compareTo(BigDecimal.ZERO) <= 0 || request.getValue().compareTo(new BigDecimal("100")) > 0) {
+                throw new IllegalArgumentException("Giá trị giảm của chiết khấu phần trăm phải nằm trong khoảng từ 1% đến 100%");
+            }
+            if (request.getMaxDiscountAmount() == null || request.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Chiết khấu phần trăm bắt buộc phải cấu hình Mức giảm tối đa (Max Discount Amount) để kiểm soát ngân sách, tránh tổn thất doanh thu.");
+            }
+        } else if (request.getDiscountType() == DiscountType.FREE_SERVICE) {
+            if (request.getApplicableServiceCode() == null || request.getApplicableServiceCode().trim().isEmpty()) {
+                throw new IllegalArgumentException("Chiết khấu rửa miễn phí (Giảm 100%) bắt buộc phải chọn Dịch vụ áp dụng cụ thể để tránh áp dụng sai dịch vụ đắt tiền.");
+            }
+            request.setValue(new BigDecimal("100"));
+        }
+
+        promotion.setName(request.getName());
+        promotion.setDescription(request.getDescription());
+        promotion.setDiscountType(request.getDiscountType());
+        promotion.setValue(request.getValue());
+        promotion.setCostPoints(request.getCostPoints() != null ? request.getCostPoints() : 0);
+        promotion.setMinTier(request.getMinTier() != null ? request.getMinTier() : "Member");
+        promotion.setMinRecencyDays(request.getMinRecencyDays() != null ? request.getMinRecencyDays() : 0);
+        promotion.setMaxClaimPerUser(request.getMaxClaimPerUser() != null && request.getMaxClaimPerUser() > 0 ? request.getMaxClaimPerUser() : null);
+        promotion.setTotalBudget(request.getTotalBudget() != null && request.getTotalBudget() > 0 ? request.getTotalBudget() : null);
+        if (request.getStartDate() != null) promotion.setStartDate(request.getStartDate());
+        if (request.getEndDate() != null) promotion.setEndDate(request.getEndDate());
+        promotion.setApplicableServiceCode(request.getApplicableServiceCode() != null && !request.getApplicableServiceCode().trim().isEmpty() ? request.getApplicableServiceCode().trim() : null);
+        promotion.setApplicableDays(request.getApplicableDays() != null && !request.getApplicableDays().trim().isEmpty() ? request.getApplicableDays().trim() : null);
+        promotion.setMaxDiscountAmount(request.getMaxDiscountAmount() != null && request.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0 ? request.getMaxDiscountAmount() : null);
+        promotion.setMinOrderValue(request.getMinOrderValue() != null && request.getMinOrderValue().compareTo(BigDecimal.ZERO) > 0 ? request.getMinOrderValue() : null);
+
+        Promotion updated = promotionRepository.save(promotion);
+        log.info("Updated promotion ID: {} ({})", id, updated.getCode());
+        return mapToResponse(updated);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Page<PromotionResponse> getPromotions(PromotionStatus status, String keyword, Pageable pageable) {
         String statusStr = status != null ? status.name() : null;

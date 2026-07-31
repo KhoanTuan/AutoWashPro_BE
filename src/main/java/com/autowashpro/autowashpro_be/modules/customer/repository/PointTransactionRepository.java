@@ -29,4 +29,9 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     @org.springframework.transaction.annotation.Transactional
     @Query(value = "UPDATE point_transaction SET created_at = :createdAt WHERE point_transaction_id = :id", nativeQuery = true)
     void updateCreatedAt(@Param("id") Long id, @Param("createdAt") LocalDateTime createdAt);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "UPDATE point_transaction SET created_at = :createdAt WHERE customer_id = :customerId AND activity_type = 'EARNED'", nativeQuery = true)
+    void updateAllEarnedCreatedAtForCustomer(@Param("customerId") Long customerId, @Param("createdAt") LocalDateTime createdAt);
 }

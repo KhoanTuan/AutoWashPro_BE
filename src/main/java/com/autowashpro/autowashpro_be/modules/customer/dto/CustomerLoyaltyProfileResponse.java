@@ -15,6 +15,7 @@ public class CustomerLoyaltyProfileResponse {
     private String phoneNumber;
     private Integer loyaltyPoints;
     private BigDecimal totalSpending;
+    private BigDecimal tierSpending;
     private String tierName;
     private String nextTierName;
     private BigDecimal nextTierMinSpend;

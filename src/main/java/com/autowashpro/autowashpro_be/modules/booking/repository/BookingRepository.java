@@ -26,6 +26,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     long countByCustomerCustomerIdAndStatusInAndUpdatedAtAfter(Long customerId, Collection<BookingStatus> statuses, java.time.LocalDateTime since);
     Optional<Booking> findFirstByCustomerCustomerIdAndStatusOrderByUpdatedAtDesc(Long customerId, BookingStatus status);
     List<Booking> findByStatus(BookingStatus status);
+    List<Booking> findByLicensePlateIgnoreCase(String licensePlate);
 
     @Query("SELECT b FROM Booking b WHERE " +
            "LOWER(b.bookingCode) LIKE LOWER(CONCAT('%', :query, '%')) OR " +

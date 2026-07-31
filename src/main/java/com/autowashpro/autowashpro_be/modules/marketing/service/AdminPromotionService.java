@@ -14,6 +14,7 @@ import java.util.List;
 
 public interface AdminPromotionService {
     PromotionResponse createPromotion(PromotionCreateRequest request);
+    PromotionResponse updatePromotion(Long id, PromotionCreateRequest request);
     Page<PromotionResponse> getPromotions(PromotionStatus status, String keyword, Pageable pageable);
     PromotionResponse getPromotionById(Long id);
     PromotionResponse updateStatus(Long id, PromotionStatus status);

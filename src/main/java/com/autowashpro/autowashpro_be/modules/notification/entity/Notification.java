@@ -30,10 +30,10 @@ public class Notification {
     @Column(name = "recipient_id")
     private Long recipientId;
 
-    @Column(name = "title", nullable = false, length = 200)
+    @Column(name = "title", nullable = false, columnDefinition = "TEXT")
     private String title;
 
-    @Column(name = "content", nullable = false, length = 1000)
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Enumerated(EnumType.STRING)

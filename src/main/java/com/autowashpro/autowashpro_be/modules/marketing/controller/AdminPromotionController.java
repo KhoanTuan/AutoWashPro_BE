@@ -40,6 +40,13 @@ public class AdminPromotionController {
         return ResponseEntity.ok(promotionService.createPromotion(request));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('MANAGE_PROMOTIONS') or hasRole('ADMIN') or hasRole('MANAGER')")
+    @Operation(summary = "[UPDATE] Cập nhật thông tin chiến dịch Khuyến mãi", description = "Cập nhật mã, tên, mô tả, mức giảm, thời gian hiệu lực và điều kiện của chiến dịch.")
+    public ResponseEntity<PromotionResponse> updatePromotion(@PathVariable Long id, @Valid @RequestBody PromotionCreateRequest request) {
+        return ResponseEntity.ok(promotionService.updatePromotion(id, request));
+    }
+
     @GetMapping
     @PreAuthorize("hasAuthority('VIEW_PROMOTIONS') or hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CASHIER')")
     @Operation(summary = "[READ] Danh sách chiến dịch Khuyến mãi", description = "Lọc theo trạng thái và từ khóa, trả về tỷ lệ đổi mã và tình trạng ngân sách.")

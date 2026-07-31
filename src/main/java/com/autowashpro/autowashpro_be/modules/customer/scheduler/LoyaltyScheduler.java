@@ -48,36 +48,71 @@ public class LoyaltyScheduler {
         List<Customer> customers = customerRepository.findAll();
         for (Customer customer : customers) {
             try {
-                int earnedBeforeBoundary = pointTransactionRepository.sumPointsByCustomerIdAndTypeAndCreatedAtBefore(
-                        customer.getCustomerId(), PointActivityType.EARNED, expiryBoundary);
+                int currentPoints = customer.getLoyaltyPoints() != null ? customer.getLoyaltyPoints() : 0;
+                if (currentPoints <= 0) continue;
 
-                int totalSpent = Math.abs(pointTransactionRepository.sumPointsByCustomerIdAndTypes(
-                        customer.getCustomerId(), Arrays.asList(PointActivityType.REDEEMED, PointActivityType.PENALTY)));
+                // Lấy tất cả lịch sử biến động điểm của khách hàng
+                List<PointTransaction> allTx = pointTransactionRepository.findAllByCustomerCustomerIdOrderByCreatedAtDesc(customer.getCustomerId());
 
-                int alreadyExpired = Math.abs(pointTransactionRepository.sumPointsByCustomerIdAndType(
-                        customer.getCustomerId(), PointActivityType.EXPIRY));
+                // 1. Giả lập: Điểm ảo (SIM-MOCK-EARNED) quá hạn
+                int mockEarnedExpired = allTx.stream()
+                        .filter(pt -> pt.getActivityType() == PointActivityType.EARNED && "SIM-MOCK-EARNED".equals(pt.getBookingCode()))
+                        .filter(pt -> pt.getCreatedAt() != null && pt.getCreatedAt().isBefore(expiryBoundary))
+                        .mapToInt(PointTransaction::getPoints)
+                        .sum();
 
-                int toExpire = Math.max(0, earnedBeforeBoundary - totalSpent) - alreadyExpired;
+                int mockAlreadyExpired = allTx.stream()
+                        .filter(pt -> pt.getActivityType() == PointActivityType.EXPIRY && pt.getBookingCode() != null && pt.getBookingCode().startsWith("SIM-EXPIRED"))
+                        .mapToInt(pt -> Math.abs(pt.getPoints()))
+                        .sum();
 
-                if (toExpire > 0) {
-                    customer.setLoyaltyPoints(Math.max(0, customer.getLoyaltyPoints() - toExpire));
+                int unexpiredMockPoints = Math.max(0, mockEarnedExpired - mockAlreadyExpired);
+
+                // 2. Điểm thật quá hạn
+                int realEarnedBeforeBoundary = allTx.stream()
+                        .filter(pt -> pt.getActivityType() == PointActivityType.EARNED && !"SIM-MOCK-EARNED".equals(pt.getBookingCode()))
+                        .filter(pt -> pt.getCreatedAt() != null && pt.getCreatedAt().isBefore(expiryBoundary))
+                        .mapToInt(PointTransaction::getPoints)
+                        .sum();
+
+                int realSpent = Math.abs(allTx.stream()
+                        .filter(pt -> (pt.getActivityType() == PointActivityType.REDEEMED || pt.getActivityType() == PointActivityType.PENALTY)
+                                && !"SIM-MOCK-EARNED".equals(pt.getBookingCode()))
+                        .mapToInt(PointTransaction::getPoints)
+                        .sum());
+
+                int realAlreadyExpired = Math.abs(allTx.stream()
+                        .filter(pt -> pt.getActivityType() == PointActivityType.EXPIRY && (pt.getBookingCode() == null || !pt.getBookingCode().startsWith("SIM-EXPIRED")))
+                        .mapToInt(PointTransaction::getPoints)
+                        .sum());
+
+                int realToExpire = Math.max(0, realEarnedBeforeBoundary - realSpent) - realAlreadyExpired;
+
+                int totalToExpire = Math.min(currentPoints, unexpiredMockPoints + Math.max(0, realToExpire));
+
+                if (totalToExpire > 0) {
+                    int newPoints = Math.max(0, currentPoints - totalToExpire);
+                    customer.setLoyaltyPoints(newPoints);
                     customerRepository.save(customer);
+
+                    String bookingCodeStr = unexpiredMockPoints > 0 ? "SIM-EXPIRED-MOCK" : ("EXPIRED-" + validityMonths + "M");
 
                     PointTransaction pt = PointTransaction.builder()
                             .customer(customer)
-                            .points(-toExpire)
+                            .points(-totalToExpire)
                             .activityType(PointActivityType.EXPIRY)
+                            .bookingCode(bookingCodeStr)
                             .build();
                     pointTransactionRepository.save(pt);
 
                     notificationService.notifyGeneral(
                             customer.getCustomerId(),
                             "Thu hồi điểm quá hạn",
-                            String.format("Tài khoản của bạn đã bị thu hồi -%d điểm Loyalty do quá hạn %d tháng chưa sử dụng.", toExpire, validityMonths),
+                            String.format("Tài khoản của bạn đã bị thu hồi -%d điểm Loyalty do quá hạn %d tháng chưa sử dụng.", totalToExpire, validityMonths),
                             NotificationType.SYSTEM_ALERT
                     );
 
-                    log.info("Expired {} points for customer: {}", toExpire, customer.getFullName());
+                    log.info("Expired {} points for customer: {}. Remaining points: {}", totalToExpire, customer.getFullName(), newPoints);
                 }
             } catch (Exception e) {
                 log.error("Error expiring points for customer: " + customer.getCustomerId(), e);

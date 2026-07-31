@@ -6,6 +6,7 @@ import com.autowashpro.autowashpro_be.modules.customer.dto.VehicleResponse;
 import com.autowashpro.autowashpro_be.modules.customer.service.VehicleService;
 import com.autowashpro.autowashpro_be.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.List;
 @RequestMapping("/api/v1/customer/vehicles")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CUSTOMER')")
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Customer Vehicle Management", description = "Quản lý Garage xe (biển số, dòng xe) cho App Khách hàng")
 public class CustomerVehicleController {
 

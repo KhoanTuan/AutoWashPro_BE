@@ -17,6 +17,8 @@ import com.autowashpro.autowashpro_be.modules.customer.entity.Customer;
 import com.autowashpro.autowashpro_be.modules.customer.entity.CustomerStatus;
 import com.autowashpro.autowashpro_be.modules.customer.entity.LoyaltyTier;
 import com.autowashpro.autowashpro_be.modules.customer.entity.Vehicle;
+import com.autowashpro.autowashpro_be.modules.customer.entity.PointTransaction;
+import com.autowashpro.autowashpro_be.modules.customer.entity.PointActivityType;
 import com.autowashpro.autowashpro_be.modules.customer.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -191,7 +193,7 @@ public class BookingService {
                 startOfToday
         );
         if (canceledToday >= 3) {
-            throw new BadRequestException("Tài khoản của bạn đã tự hủy " + canceledToday + " đơn đặt lịch trong ngày hôm nay. Để chống spam giữ chỗ, tài khoản bị tạm khóa tính năng đặt lịch cho đến ngày mai!");
+            throw new BadRequestException("Tài khoản của bạn đã hủy " + canceledToday + " đơn đặt lịch trong ngày hôm nay. Do vi phạm chế tài hủy từ 3 đơn trở lên (bị trừ 20% điểm penalty), tài khoản bị tạm cấm đặt lịch mới trong 1 ngày (cho đến ngày mai)!");
         }
 
         Optional<GarageClosure> closureOpt = garageClosureRepository.findByClosureDate(request.getBookingDate());
@@ -354,19 +356,22 @@ public class BookingService {
 
             // Calculate discount
             if (promotion.getDiscountType() == DiscountType.FIXED_AMOUNT) {
-                discountAmount = promotion.getValue();
-                if (discountAmount.compareTo(totalAmount) > 0) {
-                    discountAmount = totalAmount;
-                }
+                discountAmount = promotion.getValue() != null ? promotion.getValue() : BigDecimal.ZERO;
             } else if (promotion.getDiscountType() == DiscountType.PERCENTAGE) {
-                discountAmount = totalAmount.multiply(promotion.getValue()).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
-                // Áp dụng trần giảm tối đa (maxDiscountAmount) nếu có
-                if (promotion.getMaxDiscountAmount() != null && promotion.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
-                    if (discountAmount.compareTo(promotion.getMaxDiscountAmount()) > 0) {
-                        discountAmount = promotion.getMaxDiscountAmount();
-                    }
-                }
+                BigDecimal pct = promotion.getValue() != null ? promotion.getValue() : BigDecimal.ZERO;
+                discountAmount = totalAmount.multiply(pct).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
             } else if (promotion.getDiscountType() == DiscountType.FREE_SERVICE) {
+                discountAmount = totalAmount;
+            }
+
+            // Áp dụng trần giảm tối đa (maxDiscountAmount) nếu được cấu hình
+            if (promotion.getMaxDiscountAmount() != null && promotion.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                if (discountAmount.compareTo(promotion.getMaxDiscountAmount()) > 0) {
+                    discountAmount = promotion.getMaxDiscountAmount();
+                }
+            }
+
+            if (discountAmount.compareTo(totalAmount) > 0) {
                 discountAmount = totalAmount;
             }
 
@@ -421,11 +426,65 @@ public class BookingService {
             throw new BadRequestException("Đơn đặt lịch đang ở trạng thái '" + booking.getStatus() + "', không thể hủy!");
         }
 
-        // Chặn tự hủy sát giờ hẹn dưới 2 tiếng
-        LocalDateTime now = LocalDateTime.now();
+        // Khách hàng có thể hủy đơn bất kỳ lúc nào trước giờ hẹn
         LocalDateTime slotStartTime = LocalDateTime.of(booking.getBookingDate(), booking.getTimeSlot().getStartTime());
-        if (now.plusHours(2).isAfter(slotStartTime)) {
-            throw new BadRequestException("Không thể tự hủy lịch hẹn sát giờ phục vụ (dưới 2 tiếng). Vui lòng liên hệ Hotline xưởng để được hỗ trợ!");
+        if (LocalDateTime.now().isAfter(slotStartTime)) {
+            throw new BadRequestException("Không thể hủy đơn đặt lịch đã qua giờ hẹn!");
+        }
+
+        // Đếm số lần hủy lịch của khách hàng trong ngày hôm nay (trước lần hủy hiện tại)
+        LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+        long canceledToday = bookingRepository.countByCustomerCustomerIdAndStatusInAndUpdatedAtAfter(
+                customer.getCustomerId(),
+                Arrays.asList(BookingStatus.CANCELLED_BY_CUSTOMER, BookingStatus.CANCELLED_NO_SHOW),
+                startOfToday
+        );
+
+        // Lấy thông tin khách hàng từ DB để đảm bảo số điểm mới nhất
+        Customer dbCustomer = customerRepository.findById(customer.getCustomerId())
+                .orElse(customer);
+
+        int currentPoints = dbCustomer.getLoyaltyPoints() != null ? dbCustomer.getLoyaltyPoints() : 0;
+        int penaltyPoints = 0;
+        String penaltyMsg = "";
+
+        if (canceledToday == 0) {
+            // Lần 1: Tha (0 điểm penalty)
+            penaltyPoints = 0;
+            penaltyMsg = "Hủy lịch lần 1 trong ngày (Tha - Không trừ điểm penalty).";
+        } else if (canceledToday == 1) {
+            // Lần 2: Trừ 10 điểm penalty
+            penaltyPoints = 10;
+            int newPoints = Math.max(0, currentPoints - penaltyPoints);
+            dbCustomer.setLoyaltyPoints(newPoints);
+            customerRepository.save(dbCustomer);
+
+            PointTransaction pt = PointTransaction.builder()
+                    .customer(dbCustomer)
+                    .points(-penaltyPoints)
+                    .activityType(PointActivityType.PENALTY)
+                    .bookingCode(booking.getBookingCode())
+                    .build();
+            pointTransactionRepository.save(pt);
+
+            penaltyMsg = "Hủy lịch lần 2 trong ngày. Trừ 10 điểm penalty (Điểm còn lại: " + newPoints + " pts).";
+        } else {
+            // Lần 3 trở đi: Trừ 20% số điểm hiện có (tối thiểu 40pts, không giới hạn trần) & cấm đặt lịch 1 ngày
+            int calculated20Pct = (int) Math.round(currentPoints * 0.05);
+            penaltyPoints = Math.max(40, calculated20Pct);
+            int newPoints = Math.max(0, currentPoints - penaltyPoints);
+            dbCustomer.setLoyaltyPoints(newPoints);
+            customerRepository.save(dbCustomer);
+
+            PointTransaction pt = PointTransaction.builder()
+                    .customer(dbCustomer)
+                    .points(-penaltyPoints)
+                    .activityType(PointActivityType.PENALTY)
+                    .bookingCode(booking.getBookingCode())
+                    .build();
+            pointTransactionRepository.save(pt);
+
+            penaltyMsg = "Hủy lịch lần " + (canceledToday + 1) + " trong ngày. Trừ 5% điểm penalty (" + penaltyPoints + " pts) và bị cấm đặt lịch 1 ngày!";
         }
 
         booking.setStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
@@ -444,10 +503,10 @@ public class BookingService {
         }
 
         Booking savedBooking = bookingRepository.save(booking);
-        log.info("Booking cancelled by customer: {}", savedBooking.getBookingCode());
+        log.info("Booking cancelled by customer: {}. {}", savedBooking.getBookingCode(), penaltyMsg);
         eventPublisher.publishEvent(new BookingEvent(this, savedBooking, BookingEventAction.CANCELLED,
                 "Khách hàng hủy lịch hẹn",
-                "Khách hàng " + savedBooking.getCustomer().getFullName() + " đã hủy lịch hẹn " + savedBooking.getBookingCode() + " cho khung giờ ngày " + savedBooking.getBookingDate()));
+                penaltyMsg));
 
         return mapToResponse(savedBooking);
     }

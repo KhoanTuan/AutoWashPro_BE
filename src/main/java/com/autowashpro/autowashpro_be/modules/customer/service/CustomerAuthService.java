@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -357,6 +358,7 @@ public class CustomerAuthService {
                 .bookingWindowDays(windowDays)
                 .visitCount(customer.getVisitCount())
                 .totalSpending(customer.getTotalSpending())
+                .tierSpending(customer.getTierSpending() != null ? customer.getTierSpending() : BigDecimal.ZERO)
                 .loyaltyPoints(customer.getLoyaltyPoints())
                 .vehicles(vehicles)
                 .build();

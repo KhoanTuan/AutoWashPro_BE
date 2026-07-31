@@ -40,6 +40,9 @@ public class CustomerProfileResponse {
     @Schema(description = "Tổng chi tiêu (VND)", example = "1500000.00")
     private BigDecimal totalSpending;
 
+    @Schema(description = "Chi tiêu trong chu kỳ xét hạng hiện tại (VND)", example = "500000.00")
+    private BigDecimal tierSpending;
+
     @Schema(description = "Điểm tích lũy hiện tại", example = "150")
     private Integer loyaltyPoints;
 

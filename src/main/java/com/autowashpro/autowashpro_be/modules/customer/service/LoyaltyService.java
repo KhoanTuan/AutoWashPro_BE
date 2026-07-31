@@ -97,21 +97,25 @@ public class LoyaltyService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với ID: " + customerId));
         
-        // Cộng 100 điểm để có điểm giả lập hết hạn
-        customer.setLoyaltyPoints(customer.getLoyaltyPoints() + 100);
+        // Cộng +100 điểm ảo để giả lập điểm quá hạn (giữ nguyên điểm chính hiện tại)
+        int currentPoints = customer.getLoyaltyPoints() != null ? customer.getLoyaltyPoints() : 0;
+        customer.setLoyaltyPoints(currentPoints + 100);
         customerRepository.save(customer);
 
-        PointTransaction pt = PointTransaction.builder()
+        // Tạo giao dịch EARNED điểm ảo (+100 điểm)
+        PointTransaction mockPt = PointTransaction.builder()
                 .customer(customer)
                 .points(100)
                 .activityType(PointActivityType.EARNED)
                 .bookingCode("SIM-MOCK-EARNED")
                 .build();
-        pointTransactionRepository.saveAndFlush(pt);
-        
-        java.time.LocalDateTime targetDate = java.time.LocalDateTime.now().minusMonths(months);
-        pointTransactionRepository.updateCreatedAt(pt.getPointTransactionId(), targetDate);
-        log.info("Simulated point expiration for customer: {} (added 100 points transaction set to {} months ago)", customer.getFullName(), months);
+        pointTransactionRepository.saveAndFlush(mockPt);
+
+        // Đặt ngày tạo của riêng điểm ảo này về quá khứ (months tháng trước)
+        java.time.LocalDateTime targetDate = java.time.LocalDateTime.now().minusMonths(months).minusDays(1);
+        pointTransactionRepository.updateCreatedAt(mockPt.getPointTransactionId(), targetDate);
+
+        log.info("Simulated point expiration for customer: {} (added +100 mock points set to {} months ago)", customer.getFullName(), months);
     }
 
     @Transactional(readOnly = true)
@@ -147,7 +151,7 @@ public class LoyaltyService {
             currentTier = allTiers.get(0);
         }
 
-        BigDecimal currentSpend = customer.getTotalSpending() != null ? customer.getTotalSpending() : BigDecimal.ZERO;
+        BigDecimal currentSpend = customer.getTierSpending() != null ? customer.getTierSpending() : BigDecimal.ZERO;
 
         int currentIndex = -1;
         for (int i = 0; i < allTiers.size(); i++) {
@@ -252,6 +256,7 @@ public class LoyaltyService {
                 .phoneNumber(customer.getPhoneNumber())
                 .loyaltyPoints(customer.getLoyaltyPoints())
                 .totalSpending(customer.getTotalSpending())
+                .tierSpending(customer.getTierSpending() != null ? customer.getTierSpending() : BigDecimal.ZERO)
                 .tierName(customer.getTier() != null ? customer.getTier().getTierName() : "MEMBER")
                 .nextTierName(status.getNextTierDisplayName() != null ? status.getNextTierDisplayName() : "SILVER")
                 .nextTierMinSpend(status.getNextTierMinSpend())
