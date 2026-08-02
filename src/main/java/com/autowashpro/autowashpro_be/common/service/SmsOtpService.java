@@ -46,7 +46,7 @@ public class SmsOtpService {
 
     private void sendViaSpeedSms(String phoneNumber, String otp) throws Exception {
         String normalizedPhone = normalizeVnPhone(phoneNumber);
-        String content = "Ma xac thuc AutoWash Pro: " + otp + ". Hieu luc 2 phut.";
+        String content = "Ma xac thuc NovaWash: " + otp + ". Hieu luc 2 phut.";
 
         Map<String, Object> body = Map.of(
                 "to", List.of(normalizedPhone),
@@ -87,3 +87,4 @@ public class SmsOtpService {
         return digits;
     }
 }
+

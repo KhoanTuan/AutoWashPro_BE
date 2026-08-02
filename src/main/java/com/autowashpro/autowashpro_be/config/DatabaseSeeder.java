@@ -610,7 +610,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .recipientType(NotificationRecipientType.CUSTOMER)
                     .recipientId(cus.getCustomerId())
                     .title("👑 Chào mừng thành viên mới!")
-                    .content("Bạn đã chính thức trở thành thành viên Member của AutoWash Pro.")
+                    .content("Bạn đã chính thức trở thành thành viên Member của NovaWash.")
                     .type(NotificationType.SYSTEM_ALERT)
                     .referenceCode("WELCOME")
                     .isRead(true)
@@ -1153,3 +1153,4 @@ public class DatabaseSeeder implements CommandLineRunner {
             boolean requirePasswordChange
     ) {}
 }
+
