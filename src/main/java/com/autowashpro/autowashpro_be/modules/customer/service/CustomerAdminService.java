@@ -211,60 +211,45 @@ public class CustomerAdminService {
             return mapper.toResponse(customer);
         }
 
+        if (targetStatus == CustomerStatus.INACTIVE) {
+            // Kiểm tra xem khách hàng có lịch hẹn chưa hoàn thành trong hiện tại / tương lai hay không
+            List<Booking> activeBookings = bookingRepository.findAllByCustomerCustomerIdOrderByCreatedAtDesc(id)
+                    .stream()
+                    .filter(b -> b.getStatus() == BookingStatus.PENDING || 
+                                 b.getStatus() == BookingStatus.CONFIRMED || 
+                                 b.getStatus() == BookingStatus.IN_PROGRESS)
+                    .toList();
+
+            if (!activeBookings.isEmpty()) {
+                Booking upcoming = activeBookings.get(0);
+                String statusLabel = switch (upcoming.getStatus()) {
+                    case PENDING -> "chờ xác nhận";
+                    case CONFIRMED -> "đã xác nhận";
+                    case IN_PROGRESS -> "đang rửa xe tại trạm";
+                    default -> "chưa hoàn thành";
+                };
+                String dateStr = upcoming.getBookingDate() != null ? upcoming.getBookingDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
+
+                throw new BadRequestException("Không thể khóa tài khoản: Khách hàng " + customer.getFullName() + 
+                        " đang có " + activeBookings.size() + " lịch hẹn " + statusLabel + 
+                        " (Mã đơn: " + upcoming.getBookingCode() + (dateStr.isEmpty() ? "" : " ngày " + dateStr) + 
+                        "). Vui lòng hoàn tất hoặc hủy lịch trước khi khóa tài khoản!");
+            }
+        }
+
         customer.setStatus(targetStatus);
         customerRepository.save(customer);
 
         if (targetStatus == CustomerStatus.INACTIVE) {
-            // Nghiệp vụ: Tự động hủy toàn bộ đơn đặt lịch chưa hoàn thành (PENDING, CONFIRMED, IN_PROGRESS) của khách
-            List<Booking> customerBookings = bookingRepository.findAllByCustomerCustomerIdOrderByCreatedAtDesc(id);
-            for (Booking booking : customerBookings) {
-                if (booking.getStatus() == BookingStatus.PENDING || 
-                    booking.getStatus() == BookingStatus.CONFIRMED || 
-                    booking.getStatus() == BookingStatus.IN_PROGRESS) {
-                    
-                    booking.setStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
-                    
-                    // Hoàn trả voucher nếu có
-                    if (booking.getVoucherCode() != null) {
-                        try {
-                            customerPromotionRepository.findByCustomerCustomerIdAndVoucherCode(id, booking.getVoucherCode())
-                                .ifPresent(cp -> {
-                                    cp.setStatus(CustomerPromotionStatus.ISSUED);
-                                    customerPromotionRepository.save(cp);
-                                    
-                                    Promotion promotion = cp.getPromotion();
-                                    if (promotion != null && promotion.getRedeemedCount() != null && promotion.getRedeemedCount() > 0) {
-                                        promotion.setRedeemedCount(promotion.getRedeemedCount() - 1);
-                                    }
-                                });
-                        } catch (Exception e) {
-                            log.warn("Failed to restore voucher for booking {}: {}", booking.getBookingCode(), e.getMessage());
-                        }
-                    }
-                    
-                    bookingRepository.save(booking);
-                    
-                    // Phát sự kiện hủy lịch để giải phóng slot công suất và cập nhật thời gian thực
-                    try {
-                        eventPublisher.publishEvent(new BookingEvent(this, booking, BookingEventAction.CANCELLED,
-                                "Tài khoản bị khóa",
-                                "Lịch hẹn " + booking.getBookingCode() + " đã bị hủy do tài khoản bị khóa."));
-                    } catch (Exception e) {
-                        log.warn("Failed to publish booking cancel event: {}", e.getMessage());
-                    }
-                }
-            }
-
-            // Gửi thông báo hệ thống đến cho Khách hàng
             try {
                 realtimeNotificationService.notifyGeneral(id, 
                         "🚨 Tài khoản đã bị khóa", 
-                        "Tài khoản của bạn đã bị khóa bởi quản trị viên. Lịch hẹn chưa thực hiện đã được tự động hủy.", 
+                        "Tài khoản của bạn đã bị khóa bởi quản trị viên hệ thống.", 
                         NotificationType.SYSTEM_ALERT);
             } catch (Exception e) {
                 log.warn("Failed to send account lock notification: {}", e.getMessage());
             }
-            log.info("Locked customer account id={} name={}. Cancelled active bookings and sent alert.", id, customer.getFullName());
+            log.info("Locked customer account id={} name={}.", id, customer.getFullName());
 
         } else if (targetStatus == CustomerStatus.ACTIVE) {
             try {
@@ -275,7 +260,7 @@ public class CustomerAdminService {
             } catch (Exception e) {
                 log.warn("Failed to send reactivate notification: {}", e.getMessage());
             }
-            log.info("Reactivated customer account id={} name={}. Sent welcome notification.", id, customer.getFullName());
+            log.info("Reactivated customer account id={} name={}.", id, customer.getFullName());
         }
 
         return mapper.toResponse(customer);
