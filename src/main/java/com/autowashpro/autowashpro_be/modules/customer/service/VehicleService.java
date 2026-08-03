@@ -64,14 +64,26 @@ public class VehicleService {
             throw new BadRequestException("Biển số xe '" + cleanPlate + "' đã được đăng ký trong hệ thống!");
         }
 
+        boolean isFirstVehicle = currentVehicleCount == 0;
+        boolean shouldBeDefault = isFirstVehicle || Boolean.TRUE.equals(request.getIsDefault());
+
+        if (shouldBeDefault && currentVehicleCount > 0) {
+            List<Vehicle> existingVehicles = vehicleRepository.findByCustomerCustomerIdOrderByCreatedAtAsc(customerId);
+            for (Vehicle v : existingVehicles) {
+                v.setIsDefault(false);
+            }
+            vehicleRepository.saveAll(existingVehicles);
+        }
+
         Vehicle vehicle = Vehicle.builder()
                 .customer(customer)
                 .licensePlate(cleanPlate)
                 .model(request.getModel() != null ? request.getModel().trim() : null)
+                .isDefault(shouldBeDefault)
                 .build();
 
         Vehicle saved = vehicleRepository.save(vehicle);
-        log.info("Added vehicle {} for customer {}", cleanPlate, customerId);
+        log.info("Added vehicle {} for customer {} (isDefault: {})", cleanPlate, customerId, shouldBeDefault);
         return mapToResponse(saved);
     }
 
