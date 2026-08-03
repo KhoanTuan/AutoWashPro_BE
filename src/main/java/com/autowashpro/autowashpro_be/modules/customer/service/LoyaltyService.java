@@ -249,6 +249,9 @@ public class LoyaltyService {
 
         LoyaltyTierResponse status = getMyLoyaltyStatus(customerId);
 
+        int windowDays = (customer.getTier() != null && customer.getTier().getBookingWindowDays() != null)
+                ? customer.getTier().getBookingWindowDays() : 7;
+
         return CustomerLoyaltyProfileResponse.builder()
                 .customerId(customer.getCustomerId())
                 .fullName(customer.getFullName())
@@ -262,6 +265,7 @@ public class LoyaltyService {
                 .nextTierMinSpend(status.getNextTierMinSpend())
                 .spendNeededForNextTier(status.getSpendNeededForNextTier())
                 .progressPercentage(status.getProgressPercentage() != null ? status.getProgressPercentage().doubleValue() : 0.0)
+                .bookingWindowDays(windowDays)
                 .build();
     }
 }

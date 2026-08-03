@@ -21,4 +21,5 @@ public class CustomerLoyaltyProfileResponse {
     private BigDecimal nextTierMinSpend;
     private BigDecimal spendNeededForNextTier;
     private Double progressPercentage;
+    private Integer bookingWindowDays;
 }
