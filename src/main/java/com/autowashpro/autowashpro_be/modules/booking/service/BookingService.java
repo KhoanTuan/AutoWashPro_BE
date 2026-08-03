@@ -217,7 +217,7 @@ public class BookingService {
         }
 
         if (!isSlotApplicableForDate(slot, request.getBookingDate())) {
-            throw new BadRequestException("Khung giờ này không áp dụng cho thứ/ngày được chọn (" + request.getBookingDate().getDayOfWeek() + ")");
+            throw new BadRequestException("Khung giờ này không áp dụng cho " + formatDayOfWeekVi(request.getBookingDate().getDayOfWeek()));
         }
 
         if (request.getBookingDate().isEqual(LocalDate.now()) && slot.getStartTime().isBefore(LocalTime.now())) {
@@ -379,8 +379,16 @@ public class BookingService {
             if (promotion.getApplicableDays() != null && !promotion.getApplicableDays().trim().isEmpty()) {
                 String bookingDayOfWeek = request.getBookingDate().getDayOfWeek().name().substring(0, 3).toUpperCase();
                 String appDays = promotion.getApplicableDays().toUpperCase();
-                if (!appDays.contains(bookingDayOfWeek)) {
-                    throw new BadRequestException("Mã ưu đãi này chỉ áp dụng cho các ngày: " + promotion.getApplicableDays());
+                boolean isMatch = appDays.contains(bookingDayOfWeek) 
+                        || (bookingDayOfWeek.equals("MON") && (appDays.contains("THỨ HAI") || appDays.contains("T2")))
+                        || (bookingDayOfWeek.equals("TUE") && (appDays.contains("THỨ BA") || appDays.contains("T3")))
+                        || (bookingDayOfWeek.equals("WED") && (appDays.contains("THỨ TƯ") || appDays.contains("T4")))
+                        || (bookingDayOfWeek.equals("THU") && (appDays.contains("THỨ NĂM") || appDays.contains("T5")))
+                        || (bookingDayOfWeek.equals("FRI") && (appDays.contains("THỨ SÁU") || appDays.contains("T6")))
+                        || (bookingDayOfWeek.equals("SAT") && (appDays.contains("THỨ BẢY") || appDays.contains("T7")))
+                        || (bookingDayOfWeek.equals("SUN") && (appDays.contains("CHỦ NHẬT") || appDays.contains("CN")));
+                if (!isMatch) {
+                    throw new BadRequestException("Mã ưu đãi này chỉ áp dụng cho các ngày: " + formatApplicableDaysVi(promotion.getApplicableDays()));
                 }
             }
 
@@ -935,5 +943,38 @@ public class BookingService {
             }
         }
         return totalMinutes > 0 ? totalMinutes : 30;
+    }
+
+    private String formatDayOfWeekVi(java.time.DayOfWeek dow) {
+        if (dow == null) return "ngày được chọn";
+        return switch (dow) {
+            case MONDAY -> "Thứ Hai";
+            case TUESDAY -> "Thứ Ba";
+            case WEDNESDAY -> "Thứ Tư";
+            case THURSDAY -> "Thứ Năm";
+            case FRIDAY -> "Thứ Sáu";
+            case SATURDAY -> "Thứ Bảy";
+            case SUNDAY -> "Chủ Nhật";
+        };
+    }
+
+    private String formatApplicableDaysVi(String daysStr) {
+        if (daysStr == null || daysStr.trim().isEmpty()) return "Tất cả các ngày";
+        String[] parts = daysStr.split("[,;\\s]+");
+        List<String> formattedList = new ArrayList<>();
+        for (String p : parts) {
+            String upper = p.trim().toUpperCase();
+            switch (upper) {
+                case "MON", "MONDAY", "T2", "THU2", "2" -> formattedList.add("Thứ Hai");
+                case "TUE", "TUESDAY", "T3", "THU3", "3" -> formattedList.add("Thứ Ba");
+                case "WED", "WEDNESDAY", "T4", "THU4", "4" -> formattedList.add("Thứ Tư");
+                case "THU", "THURSDAY", "T5", "THU5", "5" -> formattedList.add("Thứ Năm");
+                case "FRI", "FRIDAY", "T6", "THU6", "6" -> formattedList.add("Thứ Sáu");
+                case "SAT", "SATURDAY", "T7", "THU7", "7" -> formattedList.add("Thứ Bảy");
+                case "SUN", "SUNDAY", "CN", "8" -> formattedList.add("Chủ Nhật");
+                default -> formattedList.add(p);
+            }
+        }
+        return String.join(", ", formattedList);
     }
 }
