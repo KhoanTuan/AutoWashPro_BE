@@ -226,42 +226,55 @@ public class CustomerAdminService {
                     
                     // Hoàn trả voucher nếu có
                     if (booking.getVoucherCode() != null) {
-                        customerPromotionRepository.findByCustomerCustomerIdAndVoucherCode(id, booking.getVoucherCode())
-                            .ifPresent(cp -> {
-                                cp.setStatus(CustomerPromotionStatus.ISSUED);
-                                customerPromotionRepository.save(cp);
-                                
-                                Promotion promotion = cp.getPromotion();
-                                if (promotion != null && promotion.getRedeemedCount() != null && promotion.getRedeemedCount() > 0) {
-                                    promotion.setRedeemedCount(promotion.getRedeemedCount() - 1);
-                                }
-                            });
+                        try {
+                            customerPromotionRepository.findByCustomerCustomerIdAndVoucherCode(id, booking.getVoucherCode())
+                                .ifPresent(cp -> {
+                                    cp.setStatus(CustomerPromotionStatus.ISSUED);
+                                    customerPromotionRepository.save(cp);
+                                    
+                                    Promotion promotion = cp.getPromotion();
+                                    if (promotion != null && promotion.getRedeemedCount() != null && promotion.getRedeemedCount() > 0) {
+                                        promotion.setRedeemedCount(promotion.getRedeemedCount() - 1);
+                                    }
+                                });
+                        } catch (Exception e) {
+                            log.warn("Failed to restore voucher for booking {}: {}", booking.getBookingCode(), e.getMessage());
+                        }
                     }
                     
                     bookingRepository.save(booking);
                     
                     // Phát sự kiện hủy lịch để giải phóng slot công suất và cập nhật thời gian thực
-                    eventPublisher.publishEvent(new BookingEvent(this, booking, BookingEventAction.CANCELLED,
-                            "Tài khoản khách hàng bị khóa",
-                            "Lịch hẹn " + booking.getBookingCode() + " đã bị hủy tự động do tài khoản khách hàng " + customer.getFullName() + " bị quản trị viên khóa hoạt động."));
+                    try {
+                        eventPublisher.publishEvent(new BookingEvent(this, booking, BookingEventAction.CANCELLED,
+                                "Tài khoản bị khóa",
+                                "Lịch hẹn " + booking.getBookingCode() + " đã bị hủy do tài khoản bị khóa."));
+                    } catch (Exception e) {
+                        log.warn("Failed to publish booking cancel event: {}", e.getMessage());
+                    }
                 }
             }
 
             // Gửi thông báo hệ thống đến cho Khách hàng
-            realtimeNotificationService.notifyGeneral(id, 
-                    "🚨 Tài khoản đã bị khóa!", 
-                    "Tài khoản của bạn đã bị khóa bởi quản trị viên hệ thống. Mọi lịch hẹn đặt trước của bạn đã bị tự động hủy bỏ.", 
-                    NotificationType.SYSTEM_ALERT);
+            try {
+                realtimeNotificationService.notifyGeneral(id, 
+                        "🚨 Tài khoản đã bị khóa", 
+                        "Tài khoản của bạn đã bị khóa bởi quản trị viên. Lịch hẹn chưa thực hiện đã được tự động hủy.", 
+                        NotificationType.SYSTEM_ALERT);
+            } catch (Exception e) {
+                log.warn("Failed to send account lock notification: {}", e.getMessage());
+            }
             log.info("Locked customer account id={} name={}. Cancelled active bookings and sent alert.", id, customer.getFullName());
 
         } else if (targetStatus == CustomerStatus.ACTIVE) {
-            customer.setStatus(targetStatus);
-            customerRepository.save(customer);
-            // Gửi thông báo hệ thống chào mừng hoạt động lại
-            realtimeNotificationService.notifyGeneral(id, 
-                    "🎉 Khôi phục tài khoản thành công!", 
-                    "Tài khoản của bạn đã được quản trị viên khôi phục hoạt động. Chào mừng bạn quay trở lại với dịch vụ của NovaWash!", 
-                    NotificationType.SYSTEM_ALERT);
+            try {
+                realtimeNotificationService.notifyGeneral(id, 
+                        "🎉 Khôi phục tài khoản", 
+                        "Tài khoản của bạn đã được quản trị viên khôi phục hoạt động.", 
+                        NotificationType.SYSTEM_ALERT);
+            } catch (Exception e) {
+                log.warn("Failed to send reactivate notification: {}", e.getMessage());
+            }
             log.info("Reactivated customer account id={} name={}. Sent welcome notification.", id, customer.getFullName());
         }
 
