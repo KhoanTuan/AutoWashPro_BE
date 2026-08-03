@@ -608,12 +608,21 @@ public class BookingService {
                         .build())
                 .collect(Collectors.toList());
 
+        String tierName = (entity.getCustomer() != null && entity.getCustomer().getTier() != null)
+                ? entity.getCustomer().getTier().getTierName()
+                : "Member";
+        Integer points = (entity.getCustomer() != null && entity.getCustomer().getLoyaltyPoints() != null)
+                ? entity.getCustomer().getLoyaltyPoints()
+                : 0;
+
         return BookingResponse.builder()
                 .bookingId(entity.getBookingId())
                 .bookingCode(entity.getBookingCode())
-                .customerId(entity.getCustomer().getCustomerId())
-                .customerName(entity.getCustomer().getFullName())
-                .customerPhone(entity.getCustomer().getPhoneNumber())
+                .customerId(entity.getCustomer() != null ? entity.getCustomer().getCustomerId() : null)
+                .customerName(entity.getCustomer() != null ? entity.getCustomer().getFullName() : "Khách hàng")
+                .customerPhone(entity.getCustomer() != null ? entity.getCustomer().getPhoneNumber() : "")
+                .customerTier(tierName)
+                .customerPoints(points)
                 .licensePlate(entity.getLicensePlate())
                 .model(entity.getModel())
                 .bookingDate(entity.getBookingDate())
