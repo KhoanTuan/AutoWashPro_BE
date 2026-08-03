@@ -34,7 +34,8 @@ public class CreateBookingRequest {
     @Schema(description = "ID khung giờ (phải còn trống suất phục vụ và áp dụng đúng thứ trong tuần)", example = "1")
     private Long timeSlotId;
 
-    @Schema(description = "ID gói dịch vụ chính (nếu có, để trống nếu chọn Gói custom từ các dịch vụ add-on)", example = "1")
+    @NotNull(message = "ID gói dịch vụ không được để trống")
+    @Schema(description = "ID gói dịch vụ chính (ví dụ: 1 = Rửa tiêu chuẩn, 2 = Rửa cao cấp... phải đang kinh doanh)", example = "1")
     private Long packageId;
 
     @Schema(description = "Danh sách ID các dịch vụ chọn thêm (nếu có, ví dụ: tẩy xích, vệ sinh mũ bảo hiểm...)", example = "[4, 5]")

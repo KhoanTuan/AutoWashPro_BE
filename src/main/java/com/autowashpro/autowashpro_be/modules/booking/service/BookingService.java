@@ -258,21 +258,14 @@ public class BookingService {
         }
         Vehicle vehicle = existingVehOpt.get();
 
-        ServiceCatalog packageService = null;
-        if (request.getPackageId() != null && request.getPackageId() > 0) {
-            packageService = serviceCatalogRepository.findById(request.getPackageId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
-            if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
-                throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
-            }
-        } else {
-            if (request.getAddonIds() == null || request.getAddonIds().isEmpty()) {
-                throw new BadRequestException("Vui lòng chọn 1 gói dịch vụ dọn rửa chính hoặc chọn ít nhất 1 tiện ích add-on!");
-            }
+        ServiceCatalog packageService = serviceCatalogRepository.findById(request.getPackageId())
+                .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
+        if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
+            throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
         }
 
         // Tính tổng số phút của đơn đặt mới = Gói chính + các dịch vụ chọn thêm
-        int newBookingDurationMinutes = (packageService != null && packageService.getDurationMinutes() != null) ? packageService.getDurationMinutes() : 0;
+        int newBookingDurationMinutes = packageService.getDurationMinutes() != null ? packageService.getDurationMinutes() : 0;
         if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
             List<ServiceCatalog> addons = serviceCatalogRepository.findAllById(request.getAddonIds());
             for (ServiceCatalog addon : addons) {
@@ -326,25 +319,14 @@ public class BookingService {
                 .notes(request.getNotes() != null ? request.getNotes().trim() : null)
                 .build();
 
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        if (packageService != null) {
-            totalAmount = packageService.getPrice() != null ? packageService.getPrice() : BigDecimal.ZERO;
-            booking.addItem(BookingItem.builder()
-                    .serviceId(packageService.getServiceId())
-                    .serviceCodeSnapshot(packageService.getServiceCode())
-                    .serviceNameSnapshot(packageService.getServiceName())
-                    .serviceTypeSnapshot(ServiceType.PACKAGE)
-                    .priceSnapshot(packageService.getPrice())
-                    .build());
-        } else {
-            booking.addItem(BookingItem.builder()
-                    .serviceId(0L)
-                    .serviceCodeSnapshot("CUSTOM_PACKAGE")
-                    .serviceNameSnapshot("Gói custom")
-                    .serviceTypeSnapshot(ServiceType.PACKAGE)
-                    .priceSnapshot(BigDecimal.ZERO)
-                    .build());
-        }
+        BigDecimal totalAmount = packageService.getPrice();
+        booking.addItem(BookingItem.builder()
+                .serviceId(packageService.getServiceId())
+                .serviceCodeSnapshot(packageService.getServiceCode())
+                .serviceNameSnapshot(packageService.getServiceName())
+                .serviceTypeSnapshot(ServiceType.PACKAGE)
+                .priceSnapshot(packageService.getPrice())
+                .build());
 
         if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
             Set<Long> uniqueAddonIds = new HashSet<>(request.getAddonIds());
@@ -608,21 +590,12 @@ public class BookingService {
                         .build())
                 .collect(Collectors.toList());
 
-        String tierName = (entity.getCustomer() != null && entity.getCustomer().getTier() != null)
-                ? entity.getCustomer().getTier().getTierName()
-                : "Member";
-        Integer points = (entity.getCustomer() != null && entity.getCustomer().getLoyaltyPoints() != null)
-                ? entity.getCustomer().getLoyaltyPoints()
-                : 0;
-
         return BookingResponse.builder()
                 .bookingId(entity.getBookingId())
                 .bookingCode(entity.getBookingCode())
-                .customerId(entity.getCustomer() != null ? entity.getCustomer().getCustomerId() : null)
-                .customerName(entity.getCustomer() != null ? entity.getCustomer().getFullName() : "Khách hàng")
-                .customerPhone(entity.getCustomer() != null ? entity.getCustomer().getPhoneNumber() : "")
-                .customerTier(tierName)
-                .customerPoints(points)
+                .customerId(entity.getCustomer().getCustomerId())
+                .customerName(entity.getCustomer().getFullName())
+                .customerPhone(entity.getCustomer().getPhoneNumber())
                 .licensePlate(entity.getLicensePlate())
                 .model(entity.getModel())
                 .bookingDate(entity.getBookingDate())
