@@ -47,35 +47,14 @@ public class AdminPromotionServiceImpl implements AdminPromotionService {
             throw new IllegalArgumentException("Mã chiến dịch ưu đãi đã tồn tại: " + request.getCode());
         }
 
-        // Kiểm tra và ràng buộc nghiệp vụ dựa trên Kiểu chiết khấu (DiscountType)
         if (request.getDiscountType() == null) {
             throw new IllegalArgumentException("Kiểu chiết khấu không được để trống");
         }
 
-        if (request.getDiscountType() == DiscountType.FIXED_AMOUNT) {
-            if (request.getValue() == null || request.getValue().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("Giá trị giảm của chiết khấu tiền mặt phải lớn hơn 0đ");
-            }
-            int costPoints = request.getCostPoints() != null ? request.getCostPoints() : 0;
-            // Nếu là voucher tặng miễn phí (không tốn điểm đổi), bắt buộc phải có đơn hàng áp dụng tối thiểu >= giá trị giảm
-            if (costPoints == 0) {
-                if (request.getMinOrderValue() == null || request.getMinOrderValue().compareTo(request.getValue()) < 0) {
-                    throw new IllegalArgumentException("Voucher tiền mặt tặng miễn phí bắt buộc phải có Giá trị đơn hàng tối thiểu (Min Order Value) lớn hơn hoặc bằng giá trị giảm để tránh hóa đơn âm/0đ.");
-                }
-            }
-        } else if (request.getDiscountType() == DiscountType.PERCENTAGE) {
-            if (request.getValue() == null || request.getValue().compareTo(BigDecimal.ZERO) <= 0 || request.getValue().compareTo(new BigDecimal("100")) > 0) {
-                throw new IllegalArgumentException("Giá trị giảm của chiết khấu phần trăm phải nằm trong khoảng từ 1% đến 100%");
-            }
-            if (request.getMaxDiscountAmount() == null || request.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("Chiết khấu phần trăm bắt buộc phải cấu hình Mức giảm tối đa (Max Discount Amount) để kiểm soát ngân sách, tránh tổn thất doanh thu.");
-            }
-        } else if (request.getDiscountType() == DiscountType.FREE_SERVICE) {
-            if (request.getApplicableServiceCode() == null || request.getApplicableServiceCode().trim().isEmpty()) {
-                throw new IllegalArgumentException("Chiết khấu rửa miễn phí (Giảm 100%) bắt buộc phải chọn Dịch vụ áp dụng cụ thể để tránh áp dụng sai dịch vụ đắt tiền.");
-            }
-            // Tự động gán giá trị giảm = 100% cho Free Service
+        if (request.getDiscountType() == DiscountType.FREE_SERVICE) {
             request.setValue(new BigDecimal("100"));
+        } else if (request.getValue() == null || request.getValue().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Giá trị giảm của chiết khấu phải lớn hơn 0đ");
         }
 
         Promotion promotion = Promotion.builder()
@@ -126,28 +105,10 @@ public class AdminPromotionServiceImpl implements AdminPromotionService {
             throw new IllegalArgumentException("Kiểu chiết khấu không được để trống");
         }
 
-        if (request.getDiscountType() == DiscountType.FIXED_AMOUNT) {
-            if (request.getValue() == null || request.getValue().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("Giá trị giảm của chiết khấu tiền mặt phải lớn hơn 0đ");
-            }
-            int costPoints = request.getCostPoints() != null ? request.getCostPoints() : 0;
-            if (costPoints == 0) {
-                if (request.getMinOrderValue() == null || request.getMinOrderValue().compareTo(request.getValue()) < 0) {
-                    throw new IllegalArgumentException("Voucher tiền mặt tặng miễn phí bắt buộc phải có Giá trị đơn hàng tối thiểu (Min Order Value) lớn hơn hoặc bằng giá trị giảm để tránh hóa đơn âm/0đ.");
-                }
-            }
-        } else if (request.getDiscountType() == DiscountType.PERCENTAGE) {
-            if (request.getValue() == null || request.getValue().compareTo(BigDecimal.ZERO) <= 0 || request.getValue().compareTo(new BigDecimal("100")) > 0) {
-                throw new IllegalArgumentException("Giá trị giảm của chiết khấu phần trăm phải nằm trong khoảng từ 1% đến 100%");
-            }
-            if (request.getMaxDiscountAmount() == null || request.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("Chiết khấu phần trăm bắt buộc phải cấu hình Mức giảm tối đa (Max Discount Amount) để kiểm soát ngân sách, tránh tổn thất doanh thu.");
-            }
-        } else if (request.getDiscountType() == DiscountType.FREE_SERVICE) {
-            if (request.getApplicableServiceCode() == null || request.getApplicableServiceCode().trim().isEmpty()) {
-                throw new IllegalArgumentException("Chiết khấu rửa miễn phí (Giảm 100%) bắt buộc phải chọn Dịch vụ áp dụng cụ thể để tránh áp dụng sai dịch vụ đắt tiền.");
-            }
+        if (request.getDiscountType() == DiscountType.FREE_SERVICE) {
             request.setValue(new BigDecimal("100"));
+        } else if (request.getValue() == null || request.getValue().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Giá trị giảm của chiết khấu phải lớn hơn 0đ");
         }
 
         promotion.setName(request.getName());
