@@ -258,14 +258,21 @@ public class BookingService {
         }
         Vehicle vehicle = existingVehOpt.get();
 
-        ServiceCatalog packageService = serviceCatalogRepository.findById(request.getPackageId())
-                .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
-        if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
-            throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
+        ServiceCatalog packageService = null;
+        if (request.getPackageId() != null && request.getPackageId() > 0) {
+            packageService = serviceCatalogRepository.findById(request.getPackageId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
+            if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
+                throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
+            }
+        } else {
+            if (request.getAddonIds() == null || request.getAddonIds().isEmpty()) {
+                throw new BadRequestException("Vui lòng chọn 1 gói dịch vụ dọn rửa chính hoặc chọn ít nhất 1 tiện ích add-on!");
+            }
         }
 
         // Tính tổng số phút của đơn đặt mới = Gói chính + các dịch vụ chọn thêm
-        int newBookingDurationMinutes = packageService.getDurationMinutes() != null ? packageService.getDurationMinutes() : 0;
+        int newBookingDurationMinutes = (packageService != null && packageService.getDurationMinutes() != null) ? packageService.getDurationMinutes() : 0;
         if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
             List<ServiceCatalog> addons = serviceCatalogRepository.findAllById(request.getAddonIds());
             for (ServiceCatalog addon : addons) {
@@ -319,14 +326,25 @@ public class BookingService {
                 .notes(request.getNotes() != null ? request.getNotes().trim() : null)
                 .build();
 
-        BigDecimal totalAmount = packageService.getPrice();
-        booking.addItem(BookingItem.builder()
-                .serviceId(packageService.getServiceId())
-                .serviceCodeSnapshot(packageService.getServiceCode())
-                .serviceNameSnapshot(packageService.getServiceName())
-                .serviceTypeSnapshot(ServiceType.PACKAGE)
-                .priceSnapshot(packageService.getPrice())
-                .build());
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        if (packageService != null) {
+            totalAmount = packageService.getPrice() != null ? packageService.getPrice() : BigDecimal.ZERO;
+            booking.addItem(BookingItem.builder()
+                    .serviceId(packageService.getServiceId())
+                    .serviceCodeSnapshot(packageService.getServiceCode())
+                    .serviceNameSnapshot(packageService.getServiceName())
+                    .serviceTypeSnapshot(ServiceType.PACKAGE)
+                    .priceSnapshot(packageService.getPrice())
+                    .build());
+        } else {
+            booking.addItem(BookingItem.builder()
+                    .serviceId(0L)
+                    .serviceCodeSnapshot("CUSTOM_PACKAGE")
+                    .serviceNameSnapshot("Gói custom")
+                    .serviceTypeSnapshot(ServiceType.PACKAGE)
+                    .priceSnapshot(BigDecimal.ZERO)
+                    .build());
+        }
 
         if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
             Set<Long> uniqueAddonIds = new HashSet<>(request.getAddonIds());
