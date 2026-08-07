@@ -103,7 +103,7 @@ public class BookingService {
             int availableCapacity = Math.max(0, slot.getMaxCapacity() - bookedCount - lockedCount);
 
             boolean isPast = date.isEqual(LocalDate.now()) && slot.getStartTime().isBefore(LocalTime.now());
-            boolean isFull = availableCapacity <= 0 || (slot.getMaxCapacity() > 0 && bookedCount >= slot.getMaxCapacity()) || lockedCount > 0;
+            boolean isFull = availableCapacity <= 0;
             boolean isInactive = !slot.getIsActive();
 
             boolean isAvailable = !isClosedHoliday && !isInactive && !isPast && !isFull;
@@ -690,7 +690,7 @@ public class BookingService {
         return mapToResponse(savedBooking);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<SlotOccupancyResponse> getOccupancyMonitor(LocalDate date) {
         List<TimeSlot> slots = timeSlotRepository.findAllByOrderByDisplayOrderAsc();
         List<SlotOccupancyResponse> responses = new ArrayList<>();
@@ -703,19 +703,7 @@ public class BookingService {
                     .map(SlotLock::getLockCount)
                     .orElse(0);
 
-            boolean isFullOrLocked = (bookedCount >= slot.getMaxCapacity()) || (lockedCount > 0) || !Boolean.TRUE.equals(slot.getIsActive());
-
-            // Tự động ghi nhận lockCount trong DB nếu slot đã chạm hoặc vượt công suất tối đa
-            if (bookedCount >= slot.getMaxCapacity() && lockedCount == 0) {
-                SlotLock autoLock = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slot.getSlotId())
-                        .orElseGet(() -> SlotLock.builder()
-                                .lockDate(date)
-                                .timeSlot(slot)
-                                .lockCount(slot.getMaxCapacity())
-                                .build());
-                autoLock.setLockCount(slot.getMaxCapacity());
-                slotLockRepository.save(autoLock);
-            }
+            boolean isLocked = (lockedCount > 0);
 
             responses.add(SlotOccupancyResponse.builder()
                     .slotId(slot.getSlotId())
@@ -723,7 +711,7 @@ public class BookingService {
                     .maxCapacity(slot.getMaxCapacity())
                     .bookedCount(bookedCount)
                     .isActive(slot.getIsActive())
-                    .isLocked(isFullOrLocked)
+                    .isLocked(isLocked)
                     .build());
         }
         return responses;
@@ -747,6 +735,10 @@ public class BookingService {
         int bookedCount = bookingRepository.countByBookingDateAndTimeSlotSlotIdAndStatusIn(
                 date, slotId, ACTIVE_CAPACITY_STATUSES);
 
+        if (lock && bookedCount >= slot.getMaxCapacity()) {
+            throw new BadRequestException("Khung giờ này đã đầy công suất đặt lịch (" + bookedCount + "/" + slot.getMaxCapacity() + "). Không thể khóa thêm chỗ trống!");
+        }
+
         SlotLock slotLock = slotLockRepository.findByLockDateAndTimeSlotSlotId(date, slotId)
                 .orElseGet(() -> SlotLock.builder()
                         .lockDate(date)
@@ -754,17 +746,14 @@ public class BookingService {
                         .lockCount(0)
                         .build());
 
-        int newCount = lock ? Math.max(1, slot.getMaxCapacity() - bookedCount) : 0;
-        if (lock && bookedCount >= slot.getMaxCapacity()) {
-            newCount = slot.getMaxCapacity();
-        }
+        int newCount = lock ? Math.max(0, slot.getMaxCapacity() - bookedCount) : 0;
 
         slotLock.setLockCount(newCount);
         slotLockRepository.save(slotLock);
 
         eventPublisher.publishEvent(new SlotCapacityChangeEvent(date, slotId));
 
-        boolean isLocked = lock || (bookedCount >= slot.getMaxCapacity()) || (newCount > 0);
+        boolean isLocked = (newCount > 0);
 
         return SlotOccupancyResponse.builder()
                 .slotId(slot.getSlotId())
