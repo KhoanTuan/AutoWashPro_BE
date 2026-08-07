@@ -58,6 +58,8 @@ public class SecurityConfig {
                                 "/api/v1/admin/feedbacks/**",
                                 "/api/v1/customer/rewards/**",
                                 "/api/v1/customer/feedbacks/**",
+                                "/api/v1/customer/bookings/services",
+                                "/api/v1/customer/bookings/slots",
                                 "/api/v1/callback/momo/ipn",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",

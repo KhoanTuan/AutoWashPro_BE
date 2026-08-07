@@ -15,4 +15,7 @@ public interface ServiceCatalogRepository extends JpaRepository<ServiceCatalog, 
     List<ServiceCatalog> findAllByServiceTypeAndIsActiveTrueOrderByDisplayOrderAsc(ServiceType serviceType);
     Optional<ServiceCatalog> findByServiceCode(String serviceCode);
     boolean existsByServiceCode(String serviceCode);
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT COUNT(*) FROM package_service WHERE service_id = :serviceId", nativeQuery = true)
+    long countPackageReferences(@org.springframework.data.repository.query.Param("serviceId") Long serviceId);
 }

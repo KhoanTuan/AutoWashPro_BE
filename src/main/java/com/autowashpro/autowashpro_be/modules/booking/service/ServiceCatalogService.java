@@ -6,6 +6,7 @@ import com.autowashpro.autowashpro_be.modules.booking.dto.ServiceCatalogRequest;
 import com.autowashpro.autowashpro_be.modules.booking.dto.ServiceCatalogResponse;
 import com.autowashpro.autowashpro_be.modules.booking.entity.ServiceCatalog;
 import com.autowashpro.autowashpro_be.modules.booking.entity.ServiceType;
+import com.autowashpro.autowashpro_be.modules.booking.repository.BookingItemRepository;
 import com.autowashpro.autowashpro_be.modules.booking.repository.ServiceCatalogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,46 +20,14 @@ import java.util.stream.Collectors;
 public class ServiceCatalogService {
 
     private final ServiceCatalogRepository serviceCatalogRepository;
+    private final BookingItemRepository bookingItemRepository;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ServiceCatalogResponse> getAllServices(boolean activeOnly) {
-        autoSeedAddonsIfNeeded();
         List<ServiceCatalog> catalog = activeOnly
                 ? serviceCatalogRepository.findAllByIsActiveTrueOrderByDisplayOrderAsc()
                 : serviceCatalogRepository.findAllByOrderByDisplayOrderAsc();
         return catalog.stream().map(this::mapToResponse).collect(Collectors.toList());
-    }
-
-    private void autoSeedAddonsIfNeeded() {
-        if (!serviceCatalogRepository.existsByServiceCode("SRV-FOAM-SPEC")) {
-            ServiceCatalog srvFoamSpec = getOrSaveService("SRV-FOAM-SPEC", "Rửa bọt tuyết chuyên dụng", ServiceType.ADDON, new java.math.BigDecimal("10000.00"), 5, "Xịt bọt tuyết làm sạch cặn bẩn toàn thân xe chuyên dụng", 10);
-            ServiceCatalog srvDry = getOrSaveService("SRV-DRY", "Xịt khô", ServiceType.ADDON, new java.math.BigDecimal("10000.00"), 5, "Xịt khô kiệt nước bằng súng hơi cao áp", 11);
-            ServiceCatalog srvShine = getOrSaveService("SRV-SHINE", "Lau bóng", ServiceType.ADDON, new java.math.BigDecimal("10000.00"), 5, "Lau bóng mặt sơn bằng khăn microfiber chuyên dụng", 12);
-
-            ServiceCatalog srvFoam = getOrSaveService("SRV-FOAM", "Rửa bọt tuyết", ServiceType.ADDON, new java.math.BigDecimal("15000.00"), 10, "Rửa bọt tuyết toàn thân xe máy", 13);
-            ServiceCatalog srvDegrease = getOrSaveService("SRV-DEGREASE", "Tẩy nhờn lốc máy", ServiceType.ADDON, new java.math.BigDecimal("20000.00"), 10, "Tẩy sạch mảng bám dầu nhờn lốc máy và gầm xe", 14);
-            ServiceCatalog srvTyre = getOrSaveService("SRV-TYRE", "Dưỡng bóng lốp", ServiceType.ADDON, new java.math.BigDecimal("15000.00"), 5, "Quét lớp dưỡng đen bảo vệ lốp xe", 15);
-
-            ServiceCatalog srvDetail = getOrSaveService("SRV-DETAIL", "Rửa chi tiết toàn diện", ServiceType.ADDON, new java.math.BigDecimal("35000.00"), 15, "Vệ sinh từng ngóc ngách chi tiết toàn thân xe", 16);
-            ServiceCatalog srvChainClean = getOrSaveService("SRV-CHAIN-CLEAN", "Tẩy ố xích chíp", ServiceType.ADDON, new java.math.BigDecimal("20000.00"), 10, "Tẩy cặn bẩn rỉ ố trên xích nhông đĩa", 17);
-            ServiceCatalog srvPlastic = getOrSaveService("SRV-PLASTIC", "Dưỡng nhựa nhám", ServiceType.ADDON, new java.math.BigDecimal("15000.00"), 10, "Phục hồi màu nhựa nhám chống bạc màu do nắng", 18);
-            ServiceCatalog srvChainLube = getOrSaveService("SRV-CHAIN-LUBE", "Tra dầu xích", ServiceType.ADDON, new java.math.BigDecimal("10000.00"), 5, "Tra mỡ bôi trơn chuyên dụng giúp xích vận hành êm ái", 19);
-
-            serviceCatalogRepository.findByServiceCode("PKG-STD").ifPresent(pkg -> {
-                pkg.setIncludedServices(new java.util.ArrayList<>(List.of(srvFoamSpec, srvDry, srvShine)));
-                serviceCatalogRepository.save(pkg);
-            });
-
-            serviceCatalogRepository.findByServiceCode("PKG-DELUXE").ifPresent(pkg -> {
-                pkg.setIncludedServices(new java.util.ArrayList<>(List.of(srvFoam, srvDegrease, srvTyre)));
-                serviceCatalogRepository.save(pkg);
-            });
-
-            serviceCatalogRepository.findByServiceCode("PKG-ULTIMATE").ifPresent(pkg -> {
-                pkg.setIncludedServices(new java.util.ArrayList<>(List.of(srvDetail, srvChainClean, srvPlastic, srvChainLube)));
-                serviceCatalogRepository.save(pkg);
-            });
-        }
     }
 
     private ServiceCatalog getOrSaveService(String code, String name, ServiceType type, java.math.BigDecimal price, int duration, String desc, int order) {
@@ -94,10 +63,18 @@ public class ServiceCatalogService {
         List<ServiceCatalog> included = new java.util.ArrayList<>();
         int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : 15;
 
-        if (request.getServiceType() == ServiceType.PACKAGE && request.getIncludedServiceIds() != null && !request.getIncludedServiceIds().isEmpty()) {
+        if (request.getServiceType() == ServiceType.PACKAGE) {
+            if (request.getIncludedServiceIds() == null || request.getIncludedServiceIds().isEmpty()) {
+                throw new BadRequestException("Gói Combo bắt buộc phải chọn ít nhất 1 dịch vụ con!");
+            }
             included = serviceCatalogRepository.findAllById(request.getIncludedServiceIds());
+            boolean hasNestedPackage = included.stream().anyMatch(s -> s.getServiceType() == ServiceType.PACKAGE);
+            if (hasNestedPackage) {
+                throw new BadRequestException("Gói Combo chỉ được bao gồm các dịch vụ đơn lẻ, không được chứa gói Combo khác!");
+            }
+
             int sumDuration = included.stream().mapToInt(s -> s.getDurationMinutes() != null ? s.getDurationMinutes() : 0).sum();
-            if (sumDuration > 0) {
+            if ((request.getDurationMinutes() == null || request.getDurationMinutes() <= 0) && sumDuration > 0) {
                 duration = sumDuration;
             }
         }
@@ -140,10 +117,18 @@ public class ServiceCatalogService {
 
         int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : (service.getDurationMinutes() != null ? service.getDurationMinutes() : 15);
 
-        if (request.getServiceType() == ServiceType.PACKAGE && request.getIncludedServiceIds() != null) {
+        if (request.getServiceType() == ServiceType.PACKAGE) {
+            if (request.getIncludedServiceIds() == null || request.getIncludedServiceIds().isEmpty()) {
+                throw new BadRequestException("Gói Combo bắt buộc phải chọn ít nhất 1 dịch vụ con!");
+            }
             List<ServiceCatalog> included = serviceCatalogRepository.findAllById(request.getIncludedServiceIds());
+            boolean hasNestedPackage = included.stream().anyMatch(s -> s.getServiceType() == ServiceType.PACKAGE);
+            if (hasNestedPackage) {
+                throw new BadRequestException("Gói Combo chỉ được bao gồm các dịch vụ đơn lẻ, không được chứa gói Combo khác!");
+            }
+
             int sumDuration = included.stream().mapToInt(s -> s.getDurationMinutes() != null ? s.getDurationMinutes() : 0).sum();
-            if (sumDuration > 0) {
+            if ((request.getDurationMinutes() == null || request.getDurationMinutes() <= 0) && sumDuration > 0) {
                 duration = sumDuration;
             }
             service.setIncludedServices(included);
@@ -184,6 +169,14 @@ public class ServiceCatalogService {
 
         if (List.of("PKG-STD", "PKG-DELUXE", "PKG-ULTIMATE").contains(service.getServiceCode())) {
             throw new BadRequestException("Không thể xóa gói dịch vụ hệ thống cốt lõi!");
+        }
+
+        if (serviceCatalogRepository.countPackageReferences(id) > 0) {
+            throw new BadRequestException("Không thể xóa vĩnh viễn dịch vụ này vì đang nằm trong ít nhất 1 Gói Combo! Hãy sử dụng tính năng 'Tắt hoạt động' thay vì xóa.");
+        }
+
+        if (bookingItemRepository.existsByService_ServiceId(id)) {
+            throw new BadRequestException("Không thể xóa vĩnh viễn dịch vụ này vì đã từng có đơn hàng đặt lịch! Hãy sử dụng tính năng 'Tắt hoạt động' thay vì xóa.");
         }
 
         serviceCatalogRepository.delete(service);

@@ -404,38 +404,51 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     @Transactional
     private void seedServiceCatalog() {
-        // Tạo/cập nhật các Dịch vụ Add-on thành phần chi tiết
-        ServiceCatalog srvFoamSpec = getOrSaveService("SRV-FOAM-SPEC", "Rửa bọt tuyết chuyên dụng", ServiceType.ADDON, new BigDecimal("10000.00"), 5, "Xịt bọt tuyết làm sạch cặn bẩn toàn thân xe chuyên dụng", 10);
-        ServiceCatalog srvDry = getOrSaveService("SRV-DRY", "Xịt khô", ServiceType.ADDON, new BigDecimal("10000.00"), 5, "Xịt khô kiệt nước bằng súng hơi cao áp", 11);
-        ServiceCatalog srvShine = getOrSaveService("SRV-SHINE", "Lau bóng", ServiceType.ADDON, new BigDecimal("10000.00"), 5, "Lau bóng mặt sơn bằng khăn microfiber chuyên dụng", 12);
+        // Tự động cập nhật phân loại chuẩn service_type cho tất cả các bản ghi hiện có trong CSDL PostgreSQL
+        serviceCatalogRepository.findAll().forEach(s -> {
+            String code = s.getServiceCode() != null ? s.getServiceCode().toUpperCase() : "";
+            if (code.startsWith("PKG-")) {
+                s.setServiceType(ServiceType.PACKAGE);
+                serviceCatalogRepository.save(s);
+            } else if (code.startsWith("ADD-") || code.equals("SRV-TYRE") || code.equals("SRV-CHAIN-CLEAN") || code.equals("SRV-PLASTIC") || code.equals("SRV-CHAIN-LUBE")) {
+                s.setServiceType(ServiceType.ADDON);
+                serviceCatalogRepository.save(s);
+            } else if (code.startsWith("SRV-")) {
+                s.setServiceType(ServiceType.SINGLE_SERVICE);
+                serviceCatalogRepository.save(s);
+            }
+        });
 
-        ServiceCatalog srvFoam = getOrSaveService("SRV-FOAM", "Rửa bọt tuyết", ServiceType.ADDON, new BigDecimal("15000.00"), 10, "Rửa bọt tuyết toàn thân xe máy", 13);
-        ServiceCatalog srvDegrease = getOrSaveService("SRV-DEGREASE", "Tẩy nhờn lốc máy", ServiceType.ADDON, new BigDecimal("20000.00"), 10, "Tẩy sạch mảng bám dầu nhờn lốc máy và gầm xe", 14);
-        ServiceCatalog srvTyre = getOrSaveService("SRV-TYRE", "Dưỡng bóng lốp", ServiceType.ADDON, new BigDecimal("15000.00"), 5, "Quét lớp dưỡng đen bảo vệ lốp xe", 15);
+        // 1. Các Dịch vụ đơn lẻ (SINGLE_SERVICE)
+        ServiceCatalog srvFoamStd = getOrSaveService("SRV-FOAM-STD", "Rửa bọt tuyết tiêu chuẩn", ServiceType.SINGLE_SERVICE, new BigDecimal("15000.00"), 10, "Làm sạch bụi bẩn toàn thân xe bằng bọt tuyết trung tính PH7 chuyên dụng", 10);
+        ServiceCatalog srvDryAir = getOrSaveService("SRV-DRY-AIR", "Xịt khô vòi khí nén", ServiceType.SINGLE_SERVICE, new BigDecimal("10000.00"), 5, "Thổi sạch nước đọng lốc máy, công tắc và các khe kẽ bằng khí nén áp lực cao", 11);
+        ServiceCatalog srvWipeShine = getOrSaveService("SRV-WIPE-SHINE", "Lau khô & lau bóng dàn áo", ServiceType.SINGLE_SERVICE, new BigDecimal("10000.00"), 5, "Lau khô kiệt nước và lau bóng dàn áo bằng khăn microfiber mịn chống trầy sơn", 12);
+        ServiceCatalog srvDegreaseEng = getOrSaveService("SRV-DEGREASE-ENG", "Tẩy nhờn lốc máy & gầm xe", ServiceType.SINGLE_SERVICE, new BigDecimal("20000.00"), 10, "Tẩy sạch mảng bám dầu nhớt bẩn lâu ngày dưới gầm và lốc máy xe", 13);
+        ServiceCatalog srvWashDetail = getOrSaveService("SRV-WASH-DETAIL", "Rửa chi tiết khoang máy & phuộc", ServiceType.SINGLE_SERVICE, new BigDecimal("35000.00"), 15, "Vệ sinh cẩn thận từng ngóc ngách, con ốc, gắp sau và ti phuộc xe máy", 14);
 
-        ServiceCatalog srvDetail = getOrSaveService("SRV-DETAIL", "Rửa chi tiết toàn diện", ServiceType.ADDON, new BigDecimal("35000.00"), 15, "Vệ sinh từng ngóc ngách chi tiết toàn thân xe", 16);
-        ServiceCatalog srvChainClean = getOrSaveService("SRV-CHAIN-CLEAN", "Tẩy ố xích chíp", ServiceType.ADDON, new BigDecimal("20000.00"), 10, "Tẩy cặn bẩn rỉ ố trên xích nhông đĩa", 17);
-        ServiceCatalog srvPlastic = getOrSaveService("SRV-PLASTIC", "Dưỡng nhựa nhám", ServiceType.ADDON, new BigDecimal("15000.00"), 10, "Phục hồi màu nhựa nhám chống bạc màu do nắng", 18);
-        ServiceCatalog srvChainLube = getOrSaveService("SRV-CHAIN-LUBE", "Tra dầu xích", ServiceType.ADDON, new BigDecimal("10000.00"), 5, "Tra mỡ bôi trơn chuyên dụng giúp xích vận hành êm ái", 19);
+        // 2. Các Dịch vụ đi kèm / Add-on (ADDON)
+        ServiceCatalog addTyreDress = getOrSaveService("ADD-TYRE-DRESS", "Quét mỡ dưỡng bóng đen lốp xe", ServiceType.ADDON, new BigDecimal("15000.00"), 5, "Bảo vệ cao su lốp chống nứt nẻ, tạo độ bóng đen tự nhiên như xe mới xuất xưởng", 20);
+        ServiceCatalog addChainClean = getOrSaveService("ADD-CHAIN-CLEAN", "Tẩy rửa nhông sên dĩa (xích)", ServiceType.ADDON, new BigDecimal("25000.00"), 15, "Tẩy sạch cặn mỡ đen, rỉ sét bám trên xích sên bằng chai xịt dung dịch chuyên dụng", 21);
+        ServiceCatalog addChainLube = getOrSaveService("ADD-CHAIN-LUBE", "Tra mỡ bôi trơn xích Motul VIP", ServiceType.ADDON, new BigDecimal("15000.00"), 5, "Tra dung dịch bôi trơn kết dính cao giúp xích êm ái, giảm ma sát và chống văng mỡ", 22);
+        ServiceCatalog addPlasticRestore = getOrSaveService("ADD-PLASTIC-RESTORE", "Phục hồi nhựa nhám dàn áo", ServiceType.ADDON, new BigDecimal("20000.00"), 10, "Dưỡng phục hồi các chi tiết nhựa nhám bị ố trắng, bạc màu do nắng mưa", 23);
+        ServiceCatalog addHelmetSan = getOrSaveService("ADD-HELMET-SAN", "Vệ sinh sấy khử khuẩn mũ bảo hiểm", ServiceType.ADDON, new BigDecimal("15000.00"), 10, "Diệt khuẩn nấm mốc lót mũ bằng bọt nano và sấy khô bằng tia UV khử mùi", 24);
+        ServiceCatalog addWaxProtect = getOrSaveService("ADD-WAX-PROTECT", "Phủ sáp bóng Gloss Shield bảo vệ sơn", ServiceType.ADDON, new BigDecimal("30000.00"), 10, "Tạo lớp phủ bóng kháng nước nhẹ, chống bám bụi và bảo vệ lớp sơn bóng/sơn mờ", 25);
 
-        // Gói 1: Tiêu chuẩn (Rửa bọt tuyết chuyên dụng, Xịt khô, Lau bóng) -> 5 + 5 + 5 = 15 phút
-        ServiceCatalog pkgStd = getOrSaveService("PKG-STD", "Rửa xe máy tiêu chuẩn", ServiceType.PACKAGE, new BigDecimal("30000.00"), 15, "Rửa bọt tuyết chuyên dụng, xịt khô, lau bóng", 1);
-        pkgStd.setIncludedServices(new java.util.ArrayList<>(List.of(srvFoamSpec, srvDry, srvShine)));
+        // 3. Các Gói Combo (PACKAGE)
+        // Combo 1: Tiêu chuẩn (Rửa bọt tuyết + Xịt khô + Lau bóng) -> 10 + 5 + 5 = 20 phút (Admin đặt sẵn 15 phút)
+        ServiceCatalog pkgStd = getOrSaveService("PKG-STD", "Gói Rửa Xe Tiêu Chuẩn", ServiceType.PACKAGE, new BigDecimal("30000.00"), 15, "Quy trình rửa sạch nhanh toàn thân xe, thổi khô kiệt nước và lau bóng chuẩn tiệm", 1);
+        pkgStd.setIncludedServices(new java.util.ArrayList<>(List.of(srvFoamStd, srvDryAir, srvWipeShine)));
         serviceCatalogRepository.save(pkgStd);
 
-        // Gói 2: Cao cấp (Rửa bọt tuyết, Tẩy nhờn lốc máy, Dưỡng bóng lốp) -> 10 + 10 + 5 = 25 phút
-        ServiceCatalog pkgDeluxe = getOrSaveService("PKG-DELUXE", "Rửa xe máy cao cấp", ServiceType.PACKAGE, new BigDecimal("50000.00"), 25, "Rửa bọt tuyết, tẩy nhờn lốc máy, dưỡng bóng lốp", 2);
-        pkgDeluxe.setIncludedServices(new java.util.ArrayList<>(List.of(srvFoam, srvDegrease, srvTyre)));
+        // Combo 2: Cao cấp (Rửa bọt tuyết + Tẩy nhờn lốc máy + Dưỡng bóng lốp + Tra dầu xích) -> 10 + 10 + 5 + 5 = 30 phút (Admin đặt 25 phút)
+        ServiceCatalog pkgDeluxe = getOrSaveService("PKG-DELUXE", "Gói Chăm Sóc Cao Cấp", ServiceType.PACKAGE, new BigDecimal("60000.00"), 25, "Rửa bọt tuyết kết hợp tẩy rửa dầu nhờn gầm máy, quét dưỡng đen lốp và tra mỡ xích", 2);
+        pkgDeluxe.setIncludedServices(new java.util.ArrayList<>(List.of(srvFoamStd, srvDegreaseEng, addTyreDress, addChainLube)));
         serviceCatalogRepository.save(pkgDeluxe);
 
-        // Gói 3: Siêu cấp & Bảo dưỡng (Rửa chi tiết toàn diện, Tẩy ố xích chíp, Dưỡng nhựa nhám, Tra dầu xích) -> 15 + 10 + 10 + 5 = 40 phút
-        ServiceCatalog pkgUltimate = getOrSaveService("PKG-ULTIMATE", "Rửa xe máy siêu cấp & bảo dưỡng", ServiceType.PACKAGE, new BigDecimal("80000.00"), 40, "Rửa chi tiết toàn diện, tẩy ố xích chíp, dưỡng nhựa nhám, tra dầu xích", 3);
-        pkgUltimate.setIncludedServices(new java.util.ArrayList<>(List.of(srvDetail, srvChainClean, srvPlastic, srvChainLube)));
+        // Combo 3: Siêu cấp & Bảo dưỡng VIP (Rửa chi tiết + Tẩy nhông sên dĩa + Tra mỡ xích + Phục hồi nhựa nhám + Dưỡng lốp) -> 15 + 15 + 5 + 10 + 5 = 50 phút (Admin ưu đãi đặt 40 phút)
+        ServiceCatalog pkgUltimate = getOrSaveService("PKG-ULTIMATE", "Gói Chăm Sóc Siêu Cấp & Bảo Dưỡng VIP", ServiceType.PACKAGE, new BigDecimal("110000.00"), 40, "Gói bảo dưỡng toàn diện từ chi tiết khoang máy đến dọn xích nhông đĩa, phục hồi nhựa nhám dàn áo và phủ bóng lốp", 3);
+        pkgUltimate.setIncludedServices(new java.util.ArrayList<>(List.of(srvWashDetail, addChainClean, addChainLube, addPlasticRestore, addTyreDress)));
         serviceCatalogRepository.save(pkgUltimate);
-
-        // Addons phụ khác
-        getOrSaveService("ADD-CHAIN", "Tẩy rửa và dưỡng xích (sên)", ServiceType.ADDON, new BigDecimal("20000.00"), 10, "Tẩy sạch cặn bẩn xích, tra dầu bôi trơn chuyên dụng", 4);
-        getOrSaveService("ADD-HELMET", "Vệ sinh mũ bảo hiểm khử khuẩn", ServiceType.ADDON, new BigDecimal("15000.00"), 10, "Khử mùi bọt nano, sấy khô mũ bảo hiểm", 5);
     }
 
     private ServiceCatalog getOrSaveService(String code, String name, ServiceType type, BigDecimal price, int duration, String desc, int order) {
@@ -584,7 +597,7 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private BookingItem createBookingItem(ServiceCatalog sc) {
         return BookingItem.builder()
-                .serviceId(sc.getServiceId())
+                .service(sc)
                 .serviceCodeSnapshot(sc.getServiceCode())
                 .serviceNameSnapshot(sc.getServiceName())
                 .serviceTypeSnapshot(sc.getServiceType())

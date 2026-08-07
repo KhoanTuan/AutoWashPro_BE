@@ -34,15 +34,17 @@ public class CustomerBookingController {
     private final CustomerRepository customerRepository;
 
     @GetMapping("/services")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<List<ServiceCatalogResponse>> getActiveServices() {
         return ResponseEntity.ok(serviceCatalogService.getAllServices(true));
     }
 
     @GetMapping("/slots")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<List<SlotAvailabilityResponse>> getAvailableSlots(
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @AuthenticationPrincipal UserPrincipal principal) {
-        Customer customer = getAuthenticatedCustomer(principal);
+        Customer customer = principal != null ? customerRepository.findByEmail(principal.getUsername()).orElse(null) : null;
         return ResponseEntity.ok(bookingService.getAvailableSlots(date, customer));
     }
 

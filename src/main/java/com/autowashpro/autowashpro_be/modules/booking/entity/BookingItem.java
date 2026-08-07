@@ -24,8 +24,13 @@ public class BookingItem extends BaseEntity {
     @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
 
-    @Column(name = "service_id", nullable = false)
-    private Long serviceId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_id", nullable = false)
+    private ServiceCatalog service;
+
+    public Long getServiceId() {
+        return service != null ? service.getServiceId() : null;
+    }
 
     @Column(name = "service_code_snapshot", nullable = false, length = 50)
     private String serviceCodeSnapshot;

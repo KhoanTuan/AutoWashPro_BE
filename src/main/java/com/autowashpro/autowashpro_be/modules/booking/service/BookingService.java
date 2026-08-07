@@ -258,20 +258,37 @@ public class BookingService {
         }
         Vehicle vehicle = existingVehOpt.get();
 
-        ServiceCatalog packageService = serviceCatalogRepository.findById(request.getPackageId())
-                .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
-        if (!packageService.getIsActive() || packageService.getServiceType() != ServiceType.PACKAGE) {
-            throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
+        boolean hasPackage = request.getPackageId() != null;
+        boolean hasAddons = request.getAddonIds() != null && !request.getAddonIds().isEmpty();
+        if (!hasPackage && !hasAddons) {
+            throw new BadRequestException("Đơn đặt lịch bắt buộc phải chọn ít nhất 1 Gói Combo hoặc 1 Dịch vụ lẻ!");
         }
 
-        // Tính tổng số phút của đơn đặt mới = Gói chính + các dịch vụ chọn thêm
-        int newBookingDurationMinutes = packageService.getDurationMinutes() != null ? packageService.getDurationMinutes() : 0;
-        if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
-            List<ServiceCatalog> addons = serviceCatalogRepository.findAllById(request.getAddonIds());
-            for (ServiceCatalog addon : addons) {
-                if (addon.getIsActive() && addon.getServiceType() == ServiceType.ADDON) {
-                    newBookingDurationMinutes += addon.getDurationMinutes() != null ? addon.getDurationMinutes() : 0;
+        ServiceCatalog packageService = null;
+        if (hasPackage) {
+            packageService = serviceCatalogRepository.findById(request.getPackageId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Gói rửa xe được chọn không hợp lệ với ID: " + request.getPackageId()));
+            if (!packageService.getIsActive()) {
+                throw new BadRequestException("Gói rửa xe được chọn không hợp lệ hoặc đã ngừng kinh doanh");
+            }
+        }
+
+        int newBookingDurationMinutes = 0;
+        if (packageService != null) {
+            newBookingDurationMinutes += packageService.getDurationMinutes() != null ? packageService.getDurationMinutes() : 0;
+        }
+
+        List<ServiceCatalog> addonServices = new ArrayList<>();
+        if (hasAddons) {
+            Set<Long> uniqueAddonIds = new HashSet<>(request.getAddonIds());
+            for (Long addonId : uniqueAddonIds) {
+                ServiceCatalog addonService = serviceCatalogRepository.findById(addonId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Dịch vụ được chọn không hợp lệ với ID: " + addonId));
+                if (!addonService.getIsActive()) {
+                    throw new BadRequestException("Dịch vụ chọn thêm không hợp lệ hoặc đã ngừng kinh doanh: " + addonId);
                 }
+                addonServices.add(addonService);
+                newBookingDurationMinutes += addonService.getDurationMinutes() != null ? addonService.getDurationMinutes() : 0;
             }
         }
         newBookingDurationMinutes = Math.max(15, newBookingDurationMinutes);
@@ -319,32 +336,27 @@ public class BookingService {
                 .notes(request.getNotes() != null ? request.getNotes().trim() : null)
                 .build();
 
-        BigDecimal totalAmount = packageService.getPrice();
-        booking.addItem(BookingItem.builder()
-                .serviceId(packageService.getServiceId())
-                .serviceCodeSnapshot(packageService.getServiceCode())
-                .serviceNameSnapshot(packageService.getServiceName())
-                .serviceTypeSnapshot(ServiceType.PACKAGE)
-                .priceSnapshot(packageService.getPrice())
-                .build());
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        if (packageService != null) {
+            totalAmount = totalAmount.add(packageService.getPrice());
+            booking.addItem(BookingItem.builder()
+                    .service(packageService)
+                    .serviceCodeSnapshot(packageService.getServiceCode())
+                    .serviceNameSnapshot(packageService.getServiceName())
+                    .serviceTypeSnapshot(packageService.getServiceType())
+                    .priceSnapshot(packageService.getPrice())
+                    .build());
+        }
 
-        if (request.getAddonIds() != null && !request.getAddonIds().isEmpty()) {
-            Set<Long> uniqueAddonIds = new HashSet<>(request.getAddonIds());
-            for (Long addonId : uniqueAddonIds) {
-                ServiceCatalog addonService = serviceCatalogRepository.findById(addonId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Addon service not found with id: " + addonId));
-                if (!addonService.getIsActive() || addonService.getServiceType() != ServiceType.ADDON) {
-                    throw new BadRequestException("Dịch vụ thêm không hợp lệ hoặc đã ngừng kinh doanh: " + addonId);
-                }
-                totalAmount = totalAmount.add(addonService.getPrice());
-                booking.addItem(BookingItem.builder()
-                        .serviceId(addonService.getServiceId())
-                        .serviceCodeSnapshot(addonService.getServiceCode())
-                        .serviceNameSnapshot(addonService.getServiceName())
-                        .serviceTypeSnapshot(ServiceType.ADDON)
-                        .priceSnapshot(addonService.getPrice())
-                        .build());
-            }
+        for (ServiceCatalog addonService : addonServices) {
+            totalAmount = totalAmount.add(addonService.getPrice());
+            booking.addItem(BookingItem.builder()
+                    .service(addonService)
+                    .serviceCodeSnapshot(addonService.getServiceCode())
+                    .serviceNameSnapshot(addonService.getServiceName())
+                    .serviceTypeSnapshot(addonService.getServiceType())
+                    .priceSnapshot(addonService.getPrice())
+                    .build());
         }
 
         BigDecimal discountAmount = BigDecimal.ZERO;
