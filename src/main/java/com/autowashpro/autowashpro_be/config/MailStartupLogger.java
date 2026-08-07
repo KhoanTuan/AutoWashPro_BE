@@ -40,7 +40,7 @@ public class MailStartupLogger {
                 impl.testConnection();
                 log.info("=== SMTP auth test: OK ===");
             } catch (Exception ex) {
-                log.error("=== SMTP auth test: FAILED — {} ===", ex.getMessage());
+                log.warn("=== SMTP auth test: WARNING — {} (system will fallback to MOCK mode if offline) ===", ex.getMessage());
             }
         }
     }

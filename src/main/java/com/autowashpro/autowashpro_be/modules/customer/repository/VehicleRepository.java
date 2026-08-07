@@ -15,6 +15,9 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
     boolean existsByLicensePlateIgnoreCase(String licensePlate);
 
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM vehicle WHERE UPPER(license_plate) = UPPER(:licensePlate) LIMIT 1", nativeQuery = true)
+    Optional<Vehicle> findByLicensePlateUnfiltered(@org.springframework.data.repository.query.Param("licensePlate") String licensePlate);
+
     long countByCustomerCustomerId(Long customerId);
 }
 

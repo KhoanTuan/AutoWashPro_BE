@@ -60,12 +60,27 @@ public class VehicleService {
 
         String cleanPlate = request.getLicensePlate().trim().toUpperCase();
 
-        if (vehicleRepository.existsByLicensePlateIgnoreCase(cleanPlate)) {
-            throw new BadRequestException("Biển số xe '" + cleanPlate + "' đã được đăng ký trong hệ thống!");
-        }
-
         boolean isFirstVehicle = currentVehicleCount == 0;
         boolean shouldBeDefault = isFirstVehicle || Boolean.TRUE.equals(request.getIsDefault());
+
+        Optional<Vehicle> existingOpt = vehicleRepository.findByLicensePlateUnfiltered(cleanPlate);
+        if (existingOpt.isPresent()) {
+            Vehicle existing = existingOpt.get();
+            if (Boolean.TRUE.equals(existing.getIsDeleted())) {
+                // Tự động khôi phục xe bị xóa mềm và cập nhật thông tin dòng xe mới nhất
+                existing.setIsDeleted(false);
+                if (request.getModel() != null && !request.getModel().isBlank()) {
+                    existing.setModel(request.getModel().trim());
+                }
+                existing.setCustomer(customer);
+                existing.setIsDefault(shouldBeDefault);
+                Vehicle reactivated = vehicleRepository.save(existing);
+                log.info("Auto-reactivated soft-deleted vehicle {} for customer ID: {}", cleanPlate, customerId);
+                return mapToResponse(reactivated);
+            } else {
+                throw new BadRequestException("Biển số xe '" + cleanPlate + "' đã được đăng ký và đang hoạt động trong hệ thống!");
+            }
+        }
 
         if (shouldBeDefault && currentVehicleCount > 0) {
             List<Vehicle> existingVehicles = vehicleRepository.findByCustomerCustomerIdOrderByCreatedAtAsc(customerId);
@@ -143,32 +158,13 @@ public class VehicleService {
             return;
         }
 
-        // Rule 1: Check for PENDING status
-        boolean hasPendingBooking = associatedBookings.stream()
-                .anyMatch(b -> b.getStatus() == BookingStatus.PENDING);
-        if (hasPendingBooking) {
-            throw new BadRequestException("Không thể xóa xe này do xe đang có lịch đặt ở trạng thái chờ xử lý (Pending). Vui lòng hủy lịch đặt trước khi xóa xe.");
-        }
+        // Chặn không cho xóa xe nếu xe đang có đơn chưa hoàn thành (PENDING hoặc CONFIRMED)
+        boolean hasActiveUnfinishedBooking = associatedBookings.stream()
+                .anyMatch(b -> b.getStatus() == BookingStatus.PENDING 
+                            || b.getStatus() == BookingStatus.CONFIRMED);
 
-        // Rule 2: Check for paid/confirmed/active bookings scheduled in the future
-        LocalDateTime now = LocalDateTime.now();
-        boolean hasFutureActiveBooking = associatedBookings.stream()
-                .filter(b -> b.getStatus() != BookingStatus.CANCELLED_BY_CUSTOMER && b.getStatus() != BookingStatus.CANCELLED_NO_SHOW)
-                .anyMatch(b -> {
-                    if (b.getBookingDate() == null) {
-                        return false;
-                    }
-                    LocalDateTime scheduledTime;
-                    if (b.getTimeSlot() != null && b.getTimeSlot().getStartTime() != null) {
-                        scheduledTime = LocalDateTime.of(b.getBookingDate(), b.getTimeSlot().getStartTime());
-                    } else {
-                        scheduledTime = b.getBookingDate().atStartOfDay();
-                    }
-                    return scheduledTime.isAfter(now);
-                });
-
-        if (hasFutureActiveBooking) {
-            throw new BadRequestException("Không thể xóa xe này vì xe đang có lịch đặt dịch vụ chưa hoàn thành trong tương lai.");
+        if (hasActiveUnfinishedBooking) {
+            throw new BadRequestException("Không thể xóa xe này do xe đang có đơn đặt dịch vụ chưa hoàn thành (Pending/Confirmed)! Vui lòng hoàn thành dịch vụ hoặc hủy lịch trước khi xóa xe.");
         }
     }
 
